@@ -18,7 +18,7 @@ class TestJSGeneratorTypeScript:
 
     def test_typescript_generation(self):
         """TypeScript mode generates proper interfaces and typed function."""
-        from src.rac_compile.js_generator import JSCodeGenerator
+        from src.rulespec_compile.js_generator import JSCodeGenerator
 
         gen = JSCodeGenerator(typescript=True)
         gen.add_input("income", 0, "number")
@@ -58,7 +58,7 @@ class TestJSGeneratorTypeScript:
 
     def test_typescript_with_no_citation(self):
         """TypeScript handles variables without citations."""
-        from src.rac_compile.js_generator import JSCodeGenerator
+        from src.rulespec_compile.js_generator import JSCodeGenerator
 
         gen = JSCodeGenerator(typescript=True)
         gen.add_input("x", 0, "number")
@@ -68,7 +68,7 @@ class TestJSGeneratorTypeScript:
 
     def test_typescript_parameter_no_source(self):
         """TypeScript handles parameters without source."""
-        from src.rac_compile.js_generator import JSCodeGenerator
+        from src.rulespec_compile.js_generator import JSCodeGenerator
 
         gen = JSCodeGenerator(typescript=True)
         gen.add_parameter("rate", {0: 10}, "")  # no source
@@ -88,7 +88,7 @@ class TestJSGeneratorMainBlock:
 
         with patch("builtins.print") as mock_print:
             runpy.run_module(
-                "rac_compile.js_generator", run_name="__main__", alter_sys=True
+                "rulespec_compile.js_generator", run_name="__main__", alter_sys=True
             )
             output = mock_print.call_args[0][0]
             assert "function calculate(" in output
@@ -99,7 +99,7 @@ class TestJSGeneratorLine128:
 
     def test_generate_dispatches_to_typescript(self):
         """When typescript=True, generate dispatches to TS."""
-        from src.rac_compile.js_generator import JSCodeGenerator
+        from src.rulespec_compile.js_generator import JSCodeGenerator
 
         gen = JSCodeGenerator(typescript=True)
         gen.add_input("x", 0, "number")
@@ -118,7 +118,7 @@ class TestSNAPEligibility:
 
     def test_eligible_below_limit(self):
         """Household below gross income limit is eligible."""
-        from src.rac_compile.calculators.snap import calculate_snap_eligible
+        from src.rulespec_compile.calculators.snap import calculate_snap_eligible
 
         result = calculate_snap_eligible(household_size=1, gross_income=500)
         assert result.eligible is True
@@ -126,21 +126,21 @@ class TestSNAPEligibility:
 
     def test_not_eligible_above_limit(self):
         """Household above gross income limit is not eligible."""
-        from src.rac_compile.calculators.snap import calculate_snap_eligible
+        from src.rulespec_compile.calculators.snap import calculate_snap_eligible
 
         result = calculate_snap_eligible(household_size=1, gross_income=2000)
         assert result.eligible is False
 
     def test_eligible_at_limit(self):
         """Household at exactly the limit is eligible."""
-        from src.rac_compile.calculators.snap import calculate_snap_eligible
+        from src.rulespec_compile.calculators.snap import calculate_snap_eligible
 
         result = calculate_snap_eligible(household_size=1, gross_income=1580)
         assert result.eligible is True
 
     def test_large_household_capped_at_8(self):
         """Household > 8 uses 8-person limits."""
-        from src.rac_compile.calculators.snap import calculate_snap_eligible
+        from src.rulespec_compile.calculators.snap import calculate_snap_eligible
 
         result8 = calculate_snap_eligible(household_size=8, gross_income=0)
         result10 = calculate_snap_eligible(household_size=10, gross_income=0)
@@ -148,7 +148,7 @@ class TestSNAPEligibility:
 
     def test_citations_included(self):
         """Eligibility result includes citations."""
-        from src.rac_compile.calculators.snap import calculate_snap_eligible
+        from src.rulespec_compile.calculators.snap import calculate_snap_eligible
 
         result = calculate_snap_eligible(household_size=1, gross_income=0)
         assert len(result.citations) == 2
@@ -165,14 +165,14 @@ class TestParserLine64:
 
     def test_effective_formula_empty(self):
         """effective_formula returns '' when no formula and no temporal code."""
-        from src.rac_compile.parser import VariableBlock
+        from src.rulespec_compile.parser import VariableBlock
 
         var = VariableBlock(name="test")
         assert var.effective_formula == ""
 
     def test_effective_formula_with_temporal_values_only(self):
         """Returns '' when temporal entries have values only."""
-        from src.rac_compile.parser import TemporalEntry, VariableBlock
+        from src.rulespec_compile.parser import TemporalEntry, VariableBlock
 
         var = VariableBlock(
             name="test",
@@ -188,10 +188,10 @@ class TestParserInlineStatuteText:
 
     def test_inline_statute_text(self):
         """Triple-quoted text on a single line is parsed."""
-        from src.rac_compile.parser import parse_rac
+        from src.rulespec_compile.parser import parse_rulespec
 
-        rac = '"""This is inline statute text."""\n'
-        result = parse_rac(rac)
+        rulespec = '"""This is inline statute text."""\n'
+        result = parse_rulespec(rulespec)
         assert result.statute_text == "This is inline statute text."
 
 
@@ -200,9 +200,9 @@ class TestParserLine232:
 
     def test_unrecognized_lines_skipped(self):
         """Lines that don't match any pattern are skipped."""
-        from src.rac_compile.parser import parse_rac
+        from src.rulespec_compile.parser import parse_rulespec
 
-        rac = """
+        rulespec = """
 this is not a valid block
 still not a valid block
 
@@ -213,7 +213,7 @@ x:
   from 2024-01-01:
     return 0
 """
-        result = parse_rac(rac)
+        result = parse_rulespec(rulespec)
         assert len(result.variables) == 1
         assert result.variables[0].name == "x"
 
@@ -223,15 +223,15 @@ class TestParserLine297:
 
     def test_unrecognized_attr_in_unified_def(self):
         """Unrecognized lines within a unified definition are skipped."""
-        from src.rac_compile.parser import parse_rac
+        from src.rulespec_compile.parser import parse_rulespec
 
-        rac = """
+        rulespec = """
 rate:
   source: "Test"
   ??? this is not a valid attr line ???
   from 2024-01-01: 0.30
 """
-        result = parse_rac(rac)
+        result = parse_rulespec(rulespec)
         assert "rate" in result.parameters
         assert result.parameters["rate"].source == "Test"
 
@@ -241,9 +241,9 @@ class TestParserLine368:
 
     def test_source_block_with_blank_lines(self):
         """Source block with blank/comment lines parses correctly."""
-        from src.rac_compile.parser import parse_rac
+        from src.rulespec_compile.parser import parse_rulespec
 
-        rac = """
+        rulespec = """
 source:
   # A comment
 
@@ -256,7 +256,7 @@ tax:
   from 2024-01-01:
     return 0
 """
-        result = parse_rac(rac)
+        result = parse_rulespec(rulespec)
         assert result.source.citation == "Test Citation"
 
 
@@ -265,9 +265,9 @@ class TestParserParameterEdgeCases:
 
     def test_parameter_values_with_invalid_entries(self):
         """Malformed indexed parameter tables fail loudly."""
-        from src.rac_compile.parser import ParserError, parse_rac
+        from src.rulespec_compile.parser import ParserError, parse_rulespec
 
-        rac = """
+        rulespec = """
 test_param:
   source: "Test"
   values:
@@ -277,31 +277,31 @@ test_param:
     2: 30
 """
         with pytest.raises(ParserError, match="Invalid parameter values entry"):
-            parse_rac(rac)
+            parse_rulespec(rulespec)
 
     def test_parameter_source_no_quotes(self):
         """Parameter source without quotes is parsed."""
-        from src.rac_compile.parser import parse_rac
+        from src.rulespec_compile.parser import parse_rulespec
 
-        rac = """
+        rulespec = """
 test_param:
   source: some/path/to/source
   values:
     0: 10
 """
-        result = parse_rac(rac)
+        result = parse_rulespec(rulespec)
         assert result.parameters["test_param"].source == "some/path/to/source"
 
     def test_parameter_no_source(self):
         """Parameter block with no source still parses."""
-        from src.rac_compile.parser import parse_rac
+        from src.rulespec_compile.parser import parse_rulespec
 
-        rac = """
+        rulespec = """
 test_param:
   values:
     0: 10
 """
-        result = parse_rac(rac)
+        result = parse_rulespec(rulespec)
         param = result.parameters["test_param"]
         assert param.source == ""
         assert param.values == {0: 10.0}
@@ -317,7 +317,7 @@ class TestPythonGeneratorStringDefault:
 
     def test_string_default_with_type_hints(self):
         """String defaults are quoted in type-hinted function."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator(type_hints=True)
         gen.add_input("name", "world", "str")
@@ -327,7 +327,7 @@ class TestPythonGeneratorStringDefault:
 
     def test_string_default_without_type_hints(self):
         """String defaults are quoted in non-type-hinted function."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator(type_hints=False)
         gen.add_input("name", "world", "str")
@@ -341,7 +341,7 @@ class TestPythonGeneratorBoolNoTypeHints:
 
     def test_bool_default_without_type_hints(self):
         """Bool defaults work without type hints."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator(type_hints=False)
         gen.add_input("flag", True, "bool")
@@ -359,7 +359,7 @@ class TestPythonGeneratorMainBlock:
 
         with patch("builtins.print") as mock_print:
             runpy.run_module(
-                "rac_compile.python_generator", run_name="__main__", alter_sys=True
+                "rulespec_compile.python_generator", run_name="__main__", alter_sys=True
             )
             output = mock_print.call_args[0][0]
             assert "def calculate(" in output
@@ -377,9 +377,11 @@ class TestCLIMainBlock:
         """__main__ block calls main()."""
         import runpy
 
-        with patch("sys.argv", ["rac-compile", "eitc"]):
+        with patch("sys.argv", ["rulespec-compile", "eitc"]):
             with patch("builtins.print"):
-                runpy.run_module("rac_compile.cli", run_name="__main__", alter_sys=True)
+                runpy.run_module(
+                    "rulespec_compile.cli", run_name="__main__", alter_sys=True
+                )
 
 
 # ============================================================
@@ -395,7 +397,7 @@ class TestValidationCLIMainBlock:
         import runpy
         from unittest.mock import MagicMock
 
-        from src.rac_compile.validation.comparator import ComparisonResults
+        from src.rulespec_compile.validation.comparator import ComparisonResults
 
         mock_results = ComparisonResults(
             total_households=10,
@@ -406,15 +408,15 @@ class TestValidationCLIMainBlock:
             config=MagicMock(),
         )
 
-        with patch("sys.argv", ["rac-validate", "--mode", "full"]):
+        with patch("sys.argv", ["rulespec-validate", "--mode", "full"]):
             # Patch validate_full on the comparator module since that's where
             # the validation CLI imports it from
             with patch(
-                "rac_compile.validation.comparator.validate_full",
+                "rulespec_compile.validation.comparator.validate_full",
                 return_value=mock_results,
             ):
                 runpy.run_module(
-                    "rac_compile.validation.cli",
+                    "rulespec_compile.validation.cli",
                     run_name="__main__",
                     alter_sys=True,
                 )

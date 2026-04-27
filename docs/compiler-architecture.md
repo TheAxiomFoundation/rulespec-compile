@@ -1,10 +1,10 @@
 # Compiler Architecture
 
-This page is the shortest accurate map of what `rac-compile` is doing today.
+This page is the shortest accurate map of what `rulespec-compile` is doing today.
 
 Use it as the canonical high-level reference for:
 
-- how `.rac` rules flow through the compiler
+- how `.yaml` rules flow through the compiler
 - which parts of the stack are stable enough to build around
 - which seams still need product or architecture guidance
 
@@ -15,8 +15,8 @@ maintaining a separate architecture description.
 
 ```mermaid
 flowchart LR
-    A["Canonical .rac citation-path modules<br/>source metadata<br/>imports / exports / re-exports"] --> B["Parser<br/>RacFile"]
-    B --> C["Program loader<br/>RacProgram<br/>module_identity graph"]
+    A["Canonical .yaml citation-path modules<br/>source metadata<br/>imports / exports / re-exports"] --> B["Parser<br/>RuleSpecFile"]
+    B --> C["Program loader<br/>RuleSpecProgram<br/>module_identity graph"]
     C --> D["Binding + resolution<br/>effective date<br/>rule bindings<br/>module roots / packages"]
     D --> E["Shared compile model<br/>CompiledModule"]
     E --> F["LoweredProgram<br/>typed ordered computations<br/>public outputs"]
@@ -41,7 +41,7 @@ flowchart LR
 
 ### 1. Rule source
 
-The source of truth is checked-in `.rac` files. For canonical RAC trees,
+The source of truth is checked-in `.yaml` files. For canonical RuleSpec trees,
 `module_identity` comes from the `statute/...`, `regulation/...`, or
 `legislation/...` path. For ad hoc files outside those roots, it falls back to
 the file leaf name. That identity shows up in imports, binding keys, lowered
@@ -49,7 +49,7 @@ bundles, and generated citation metadata.
 
 ### 2. Parse + graph assembly
 
-`RacFile` parses one file. `RacProgram` loads the file graph, resolves imports,
+`RuleSpecFile` parses one file. `RuleSpecProgram` loads the file graph, resolves imports,
 applies export surfaces, and enforces identity rules such as unique canonical
 module identities within one loaded program.
 
@@ -113,7 +113,7 @@ cannot represent safely. Known gaps:
 - **Scalar-or-indexed numeric external rules only.** The Rust generator assumes
   external rule schemas resolve to numeric scalars or indexed numeric tables,
   matching the current shared compile model.
-- **Prebuilt binaries emit JS/Python only.** The shipped `rac-compile eitc`
+- **Prebuilt binaries emit JS/Python only.** The shipped `rulespec-compile eitc`
   prebuilt invocation generates the JS and Python targets. The Rust target is
   available through the library API and CLI flags, but is not part of the
   default prebuilt output and may require the module to stay within the
@@ -127,8 +127,8 @@ the subset should be a deliberate decision (see Decision Seam E below).
 
 ### Stable enough to build on
 
-- `.rac`-only source format
-- canonical path-based `module_identity` for real RAC trees
+- `.yaml`-only source format
+- canonical path-based `module_identity` for real RuleSpec trees
 - local/imported module graph loading
 - explicit exports, import aliases, selective imports, and re-exports
 - shared lowered bundle
@@ -171,7 +171,7 @@ resolver contract and migration path.
 ### B. Rule identity policy
 
 Question:
-What exactly counts as the canonical RAC identity path outside the current
+What exactly counts as the canonical RuleSpec identity path outside the current
 `statute/`, `regulation/`, and `legislation/` roots?
 
 Why it matters:
@@ -191,14 +191,14 @@ policy decision as much as a technical one.
 ### D. Package/workspace model
 
 Question:
-Should RAC libraries be addressed only by workspace aliases, or do they need a
+Should RuleSpec libraries be addressed only by workspace aliases, or do they need a
 stronger package manifest / versioned interface model?
 
 Why it matters:
 Import resolution works today, but the long-term authoring model for a larger
 policy graph is still open.
 
-### E. Supported RAC subset
+### E. Supported RuleSpec subset
 
 Question:
 Which language features are actually worth supporting next, versus staying

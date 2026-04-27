@@ -1,5 +1,5 @@
 """
-Rust code generation from lowered RAC IR.
+Rust code generation from lowered RuleSpec IR.
 
 Generates standalone Rust calculators for the current validated numeric/boolean
 generic compile subset.
@@ -113,7 +113,7 @@ class Output:
 
 class RustCodeGenerator:
     """
-    Generate standalone Rust calculators from lowered RAC IR.
+    Generate standalone Rust calculators from lowered RuleSpec IR.
 
     The current Rust backend intentionally targets the validated numeric/boolean
     subset used by the shared generic compiler.
@@ -240,7 +240,7 @@ class RustCodeGenerator:
 
     def _emit_header(self, lines: list[str]) -> None:
         """Emit the generated-module header."""
-        lines.append("// Auto-generated from RAC DSL")
+        lines.append("// Auto-generated from RuleSpec")
         lines.append(f"// Module: {self.module_name}")
         lines.append("//")
         lines.append(
@@ -268,38 +268,38 @@ class RustCodeGenerator:
                 "use std::collections::BTreeMap;",
                 "",
                 "#[derive(Debug, Clone, PartialEq)]",
-                "pub enum RacValue {",
+                "pub enum RuleSpecValue {",
                 "    Bool(bool),",
                 "    Integer(i64),",
                 "    Number(f64),",
                 "    String(String),",
                 "}",
                 "",
-                "impl From<bool> for RacValue {",
+                "impl From<bool> for RuleSpecValue {",
                 "    fn from(value: bool) -> Self {",
                 "        Self::Bool(value)",
                 "    }",
                 "}",
                 "",
-                "impl From<i64> for RacValue {",
+                "impl From<i64> for RuleSpecValue {",
                 "    fn from(value: i64) -> Self {",
                 "        Self::Integer(value)",
                 "    }",
                 "}",
                 "",
-                "impl From<f64> for RacValue {",
+                "impl From<f64> for RuleSpecValue {",
                 "    fn from(value: f64) -> Self {",
                 "        Self::Number(value)",
                 "    }",
                 "}",
                 "",
-                "impl From<String> for RacValue {",
+                "impl From<String> for RuleSpecValue {",
                 "    fn from(value: String) -> Self {",
                 "        Self::String(value)",
                 "    }",
                 "}",
                 "",
-                "impl From<&str> for RacValue {",
+                "impl From<&str> for RuleSpecValue {",
                 "    fn from(value: &str) -> Self {",
                 "        Self::String(value.to_string())",
                 "    }",
@@ -315,7 +315,7 @@ class RustCodeGenerator:
                 "",
                 "#[derive(Debug, Clone, PartialEq)]",
                 "pub struct CalculationResult {",
-                "    pub outputs: BTreeMap<&'static str, RacValue>,",
+                "    pub outputs: BTreeMap<&'static str, RuleSpecValue>,",
                 "    pub citations: Vec<Citation>,",
                 "}",
                 "",
@@ -326,36 +326,36 @@ class RustCodeGenerator:
         """Emit numeric helper shims for supported builtin functions."""
         lines.extend(
             [
-                "fn rac_abs(value: f64) -> f64 {",
+                "fn rulespec_abs(value: f64) -> f64 {",
                 "    value.abs()",
                 "}",
                 "",
-                "fn rac_ceil(value: f64) -> f64 {",
+                "fn rulespec_ceil(value: f64) -> f64 {",
                 "    value.ceil()",
                 "}",
                 "",
-                "fn rac_floor(value: f64) -> f64 {",
+                "fn rulespec_floor(value: f64) -> f64 {",
                 "    value.floor()",
                 "}",
                 "",
-                "fn rac_round(value: f64) -> f64 {",
+                "fn rulespec_round(value: f64) -> f64 {",
                 "    value.round()",
                 "}",
                 "",
-                "fn rac_max(values: &[f64]) -> f64 {",
+                "fn rulespec_max(values: &[f64]) -> f64 {",
                 "    values",
                 "        .iter()",
                 "        .copied()",
                 "        .reduce(f64::max)",
-                '        .expect("rac_max requires at least one argument")',
+                '        .expect("rulespec_max requires at least one argument")',
                 "}",
                 "",
-                "fn rac_min(values: &[f64]) -> f64 {",
+                "fn rulespec_min(values: &[f64]) -> f64 {",
                 "    values",
                 "        .iter()",
                 "        .copied()",
                 "        .reduce(f64::min)",
-                '        .expect("rac_min requires at least one argument")',
+                '        .expect("rulespec_min requires at least one argument")',
                 "}",
                 "",
             ]
@@ -484,7 +484,7 @@ class RustCodeGenerator:
     def _emit_calculate_public(self, lines: list[str]) -> None:
         """Emit a map-based public input entrypoint keyed by rule identity."""
         lines.append(
-            "pub fn calculate_public(inputs: &BTreeMap<String, RacValue>) "
+            "pub fn calculate_public(inputs: &BTreeMap<String, RuleSpecValue>) "
             "-> CalculationResult {"
         )
         lines.append("    let mut typed_inputs = CalculateInputs::default();")
@@ -596,16 +596,16 @@ def _render_variable_expression(
 
 
 def _render_output_value(output: Output) -> str:
-    """Render one public output conversion into RacValue."""
+    """Render one public output conversion into RuleSpecValue."""
     variable_name = _rust_identifier(output.variable_name)
     if output.value_kind == "boolean":
-        return f"RacValue::Bool({variable_name})"
+        return f"RuleSpecValue::Bool({variable_name})"
     if output.value_kind == "integer":
-        return f"RacValue::Integer(({variable_name}) as i64)"
+        return f"RuleSpecValue::Integer(({variable_name}) as i64)"
     if output.value_kind == "number":
-        return f"RacValue::Number({variable_name})"
+        return f"RuleSpecValue::Number({variable_name})"
     if output.value_kind == "string":
-        return f"RacValue::String({variable_name}.to_string())"
+        return f"RuleSpecValue::String({variable_name}.to_string())"
     raise _compilation_error(
         f"Rust backend does not support output kind '{output.value_kind}'."
     )
@@ -618,13 +618,13 @@ def _render_public_input_assignment_rust(
     value_kind: str,
     indent: str,
 ) -> list[str]:
-    """Render Rust lines that coerce one public RacValue into a typed input."""
+    """Render Rust lines that coerce one public RuleSpecValue into a typed input."""
     target = f"typed_inputs.{_rust_identifier(name)}"
     if value_kind == "boolean":
         message = _rust_string_literal(f"Input '{public_name}' must be boolean.")
         return [
             f"{indent}{target} = match value {{",
-            f"{indent}    RacValue::Bool(value) => *value,",
+            f"{indent}    RuleSpecValue::Bool(value) => *value,",
             f"{indent}    _ => panic!({message}),",
             f"{indent}}};",
         ]
@@ -632,9 +632,9 @@ def _render_public_input_assignment_rust(
         message = _rust_string_literal(f"Input '{public_name}' must be integer.")
         return [
             f"{indent}{target} = match value {{",
-            f"{indent}    RacValue::Integer(value) => *value,",
+            f"{indent}    RuleSpecValue::Integer(value) => *value,",
             (
-                f"{indent}    RacValue::Number(value) "
+                f"{indent}    RuleSpecValue::Number(value) "
                 "if value.fract() == 0.0 => *value as i64,"
             ),
             f"{indent}    _ => panic!({message}),",
@@ -644,8 +644,8 @@ def _render_public_input_assignment_rust(
         message = _rust_string_literal(f"Input '{public_name}' must be numeric.")
         return [
             f"{indent}{target} = match value {{",
-            f"{indent}    RacValue::Integer(value) => *value as f64,",
-            f"{indent}    RacValue::Number(value) => *value,",
+            f"{indent}    RuleSpecValue::Integer(value) => *value as f64,",
+            f"{indent}    RuleSpecValue::Number(value) => *value,",
             f"{indent}    _ => panic!({message}),",
             f"{indent}}};",
         ]
@@ -918,7 +918,7 @@ def _render_expression_rust(
                 parameter_functions=parameter_functions,
                 expected_kind="number",
             )
-            rendered = f"rac_{expression.function}({argument})"
+            rendered = f"rulespec_{expression.function}({argument})"
             if natural_kind == "integer":
                 rendered = f"(({rendered}) as i64)"
             return _coerce_rust_value(
@@ -953,7 +953,9 @@ def _render_expression_rust(
                     )
                     for argument in expression.arguments
                 ]
-                rendered = f"rac_{expression.function}(&[{', '.join(rendered_args)}])"
+                rendered = (
+                    f"rulespec_{expression.function}(&[{', '.join(rendered_args)}])"
+                )
             return _coerce_rust_value(
                 rendered,
                 from_kind=natural_kind,
@@ -1282,7 +1284,7 @@ def _internal_identifier(prefix: str, name: str) -> str:
 
 
 def _rust_identifier(name: str) -> str:
-    """Render a RAC identifier as a Rust identifier."""
+    """Render a RuleSpec identifier as a Rust identifier."""
     if name in _RUST_KEYWORDS:
         return f"r#{name}"
     return name

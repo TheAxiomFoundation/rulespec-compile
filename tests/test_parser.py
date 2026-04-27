@@ -1,11 +1,11 @@
-"""Tests for the RAC parser."""
+"""Tests for the RuleSpec parser."""
 
 import subprocess
 from pathlib import Path
 
 import pytest
 
-from src.rac_compile.parser import ParserError, RacFile, parse_rac
+from src.rulespec_compile.parser import ParserError, RuleSpecFile, parse_rulespec
 
 
 class TestSourceBlock:
@@ -13,7 +13,7 @@ class TestSourceBlock:
 
     def test_parse_source_block(self):
         """A `source:` block is parsed into a SourceBlock."""
-        result = parse_rac(
+        result = parse_rulespec(
             """
 source:
   lawarchive: us/statute/26/32/2025-01-01
@@ -29,7 +29,7 @@ source:
 
     def test_source_block_optional(self):
         """Files do not need source metadata."""
-        result = parse_rac(
+        result = parse_rulespec(
             """
 foo:
   entity: Person
@@ -45,7 +45,7 @@ foo:
     def test_source_block_requires_fields(self):
         """An empty source block fails loudly."""
         with pytest.raises(ParserError, match="source: block must contain"):
-            parse_rac(
+            parse_rulespec(
                 """
 source:
 foo:
@@ -59,11 +59,11 @@ foo:
 
 
 class TestParameterDefinitions:
-    """Tests for RAC parameter parsing."""
+    """Tests for RuleSpec parameter parsing."""
 
     def test_parse_scalar_parameter(self):
         """Parameters can use temporal scalar entries."""
-        result = parse_rac(
+        result = parse_rulespec(
             """
 niit_rate:
   source: "26 USC 1411"
@@ -79,7 +79,7 @@ niit_rate:
 
     def test_parse_multiple_temporal_values(self):
         """Parameters can have multiple temporal scalar entries."""
-        result = parse_rac(
+        result = parse_rulespec(
             """
 threshold:
   source: "Rev. Proc. 2024-40"
@@ -95,7 +95,7 @@ threshold:
 
     def test_parse_indexed_values_block(self):
         """Parameters can define indexed lookup tables with `values:`."""
-        result = parse_rac(
+        result = parse_rulespec(
             """
 credit_pct:
   source: "26 USC 32(b)(1)"
@@ -116,7 +116,7 @@ credit_pct:
 
     def test_parameter_with_description(self):
         """Parameters keep description and unit metadata."""
-        result = parse_rac(
+        result = parse_rulespec(
             """
 contribution_rate:
   description: "Household contribution as share of net income"
@@ -134,7 +134,7 @@ contribution_rate:
     def test_invalid_values_block_fails_loudly(self):
         """Malformed indexed parameter tables are rejected."""
         with pytest.raises(ParserError, match="Invalid parameter values entry"):
-            parse_rac(
+            parse_rulespec(
                 """
 credit_pct:
   values:
@@ -145,7 +145,7 @@ credit_pct:
     def test_rejects_mixed_values_and_temporal_entries(self):
         """Indexed tables and temporal entries cannot be mixed in one parameter."""
         with pytest.raises(ParserError, match="cannot mix a values block"):
-            parse_rac(
+            parse_rulespec(
                 """
 credit_pct:
   values:
@@ -156,11 +156,11 @@ credit_pct:
 
 
 class TestVariableDefinitions:
-    """Tests for RAC variable parsing."""
+    """Tests for RuleSpec variable parsing."""
 
     def test_parse_variable_with_temporal_formula(self):
         """Variables can store a formula under a `from` entry."""
-        result = parse_rac(
+        result = parse_rulespec(
             """
 niit:
   entity: TaxUnit
@@ -184,7 +184,7 @@ niit:
 
     def test_variable_type_inference(self):
         """Entity/period/dtype distinguishes variables from parameters."""
-        result = parse_rac(
+        result = parse_rulespec(
             """
 rate:
   from 2024-01-01: 0.038
@@ -203,7 +203,7 @@ tax:
 
     def test_variable_with_label(self):
         """Variables preserve label metadata."""
-        result = parse_rac(
+        result = parse_rulespec(
             """
 eitc:
   entity: TaxUnit
@@ -219,7 +219,7 @@ eitc:
 
     def test_variable_with_default_metadata(self):
         """No-formula variable defaults are preserved for declared inputs."""
-        result = parse_rac(
+        result = parse_rulespec(
             """
 is_us_citizen_national_or_resident:
   entity: Person
@@ -234,7 +234,7 @@ is_us_citizen_national_or_resident:
 
     def test_scalar_computed_rule_without_entity_stays_variable(self):
         """Entity-less rules with code blocks stay computed rules, not parameters."""
-        result = parse_rac(
+        result = parse_rulespec(
             """
 snap_self_employment_cost_exclusion:
   label: "SNAP self-employment cost exclusion"
@@ -255,7 +255,7 @@ snap_self_employment_cost_exclusion:
 
     def test_variable_with_multiple_temporal_formulas(self):
         """Variables can define multiple dated formulas."""
-        result = parse_rac(
+        result = parse_rulespec(
             """
 credit:
   entity: TaxUnit
@@ -277,7 +277,7 @@ credit:
 
     def test_variable_imports_block_parses_spec_style_imports(self):
         """Variables can declare per-rule imports with `path#symbol` syntax."""
-        result = parse_rac(
+        result = parse_rulespec(
             """
 first_reduction:
   imports:
@@ -299,7 +299,7 @@ first_reduction:
     def test_variable_rejects_parameter_values_block(self):
         """Variables cannot use the parameter `values:` table syntax."""
         with pytest.raises(ParserError, match="cannot define a parameter values block"):
-            parse_rac(
+            parse_rulespec(
                 """
 tax:
   entity: Person
@@ -314,13 +314,13 @@ tax:
 class TestImportsAndExports:
     """Tests for top-level import/export parsing."""
 
-    def test_parse_rac_collects_top_level_imports(self, tmp_path):
+    def test_parse_rulespec_collects_top_level_imports(self, tmp_path):
         """Top-level import strings are preserved on the parsed file."""
-        origin = tmp_path / "main.rac"
-        result = parse_rac(
+        origin = tmp_path / "main.yaml"
+        result = parse_rulespec(
             """
-import "./shared.rac"
-import "../common/base.rac"
+import "./shared.yaml"
+import "../common/base.yaml"
 
 tax:
   entity: Person
@@ -332,30 +332,30 @@ tax:
             origin=origin,
         )
 
-        assert result.imports == ["./shared.rac", "../common/base.rac"]
+        assert result.imports == ["./shared.yaml", "../common/base.yaml"]
         assert result.origin == origin.resolve()
 
-    def test_parse_rac_collects_import_aliases(self, tmp_path):
+    def test_parse_rulespec_collects_import_aliases(self, tmp_path):
         """Aliased imports are preserved structurally."""
-        origin = tmp_path / "main.rac"
-        result = parse_rac(
+        origin = tmp_path / "main.yaml"
+        result = parse_rulespec(
             """
-import "./shared.rac" as shared
-import "./base.rac"
+import "./shared.yaml" as shared
+import "./base.yaml"
 """,
             origin=origin,
         )
 
-        assert result.imports == ["./shared.rac", "./base.rac"]
-        assert result.import_specs[0].path == "./shared.rac"
+        assert result.imports == ["./shared.yaml", "./base.yaml"]
+        assert result.import_specs[0].path == "./shared.yaml"
         assert result.import_specs[0].alias == "shared"
-        assert result.import_specs[1].path == "./base.rac"
+        assert result.import_specs[1].path == "./base.yaml"
         assert result.import_specs[1].alias is None
 
-    def test_parse_rac_collects_top_level_spec_style_imports(self, tmp_path):
-        """Top-level `imports:` blocks are preserved for live-stack RAC files."""
-        origin = tmp_path / "main.rac"
-        result = parse_rac(
+    def test_parse_rulespec_collects_top_level_spec_style_imports(self, tmp_path):
+        """Top-level `imports:` blocks are preserved for live-stack RuleSpec files."""
+        origin = tmp_path / "main.yaml"
+        result = parse_rulespec(
             """
 imports:
   - statute/crs/26-2-703/12#is_individual_responsibility_contract
@@ -377,17 +377,17 @@ imports:
 
     def test_parse_selective_imports_exports_and_re_exports(self, tmp_path):
         """Selective imports, exports, and re-exports are preserved."""
-        origin = tmp_path / "main.rac"
-        result = parse_rac(
+        origin = tmp_path / "main.yaml"
+        result = parse_rulespec(
             """
 export tax as benefit_amount, taxable_income
-export from "./shared.rac" import upstream_benefit as benefit_amount_2
-from "./shared.rac" import rate, threshold as income_threshold
+export from "./shared.yaml" import upstream_benefit as benefit_amount_2
+from "./shared.yaml" import rate, threshold as income_threshold
 """,
             origin=origin,
         )
 
-        assert result.imports == ["./shared.rac"]
+        assert result.imports == ["./shared.yaml"]
         assert result.exports == [
             "benefit_amount",
             "taxable_income",
@@ -397,10 +397,10 @@ from "./shared.rac" import rate, threshold as income_threshold
         assert result.export_specs[0].alias == "benefit_amount"
         assert result.export_specs[1].name == "taxable_income"
         assert result.export_specs[1].alias is None
-        assert result.re_export_specs[0].path == "./shared.rac"
+        assert result.re_export_specs[0].path == "./shared.yaml"
         assert result.re_export_specs[0].symbols[0].name == "upstream_benefit"
         assert result.re_export_specs[0].symbols[0].alias == "benefit_amount_2"
-        assert result.import_specs[0].path == "./shared.rac"
+        assert result.import_specs[0].path == "./shared.yaml"
         assert result.import_specs[0].symbols[0].name == "rate"
         assert result.import_specs[0].symbols[1].alias == "income_threshold"
 
@@ -411,7 +411,7 @@ class TestFormulaConversion:
     def test_converts_min_to_math_min(self):
         """min() is converted to Math.min()."""
         code = (
-            parse_rac(
+            parse_rulespec(
                 """
 x:
   entity: Person
@@ -430,7 +430,7 @@ x:
     def test_converts_max_to_math_max(self):
         """max() is converted to Math.max()."""
         code = (
-            parse_rac(
+            parse_rulespec(
                 """
 x:
   entity: Person
@@ -449,7 +449,7 @@ x:
     def test_converts_round_to_math_round(self):
         """round() is converted to Math.round()."""
         code = (
-            parse_rac(
+            parse_rulespec(
                 """
 x:
   entity: Person
@@ -468,7 +468,7 @@ x:
     def test_converts_parameter_references(self):
         """Parameter references compile to PARAMS lookups."""
         code = (
-            parse_rac(
+            parse_rulespec(
                 """
 rate:
   values:
@@ -491,7 +491,7 @@ x:
     def test_nested_math_functions(self):
         """Nested helper calls render correctly."""
         code = (
-            parse_rac(
+            parse_rulespec(
                 """
 x:
   entity: Person
@@ -509,11 +509,11 @@ x:
 
 
 class TestFullFiles:
-    """Tests for complete RAC files."""
+    """Tests for complete RuleSpec files."""
 
     def test_parse_complete_file(self):
-        """A full RAC file with source, parameters, and variables parses."""
-        result = parse_rac(
+        """A full RuleSpec file with source, parameters, and variables parses."""
+        result = parse_rulespec(
             """
 # 26 USC 32 - Earned Income Tax Credit
 
@@ -540,16 +540,16 @@ eitc:
 """
         )
 
-        assert isinstance(result, RacFile)
+        assert isinstance(result, RuleSpecFile)
         assert result.source is not None
         assert result.source.citation == "26 USC 32"
         assert "credit_pct" in result.parameters
         assert [variable.name for variable in result.variables] == ["eitc"]
 
-    def test_rac_file_to_js_generator(self):
-        """Parsed RAC files can generate JavaScript."""
+    def test_rulespec_file_to_js_generator(self):
+        """Parsed RuleSpec files can generate JavaScript."""
         code = (
-            parse_rac(
+            parse_rulespec(
                 """
 source:
   citation: "Test"
@@ -575,7 +575,7 @@ tax:
 
 
 class TestExampleFiles:
-    """Tests for the shipped example `.rac` files."""
+    """Tests for the shipped example `.yaml` files."""
 
     def _assert_valid_js(self, code: str):
         proc = subprocess.run(
@@ -587,9 +587,9 @@ class TestExampleFiles:
         assert proc.returncode == 0, f"JS syntax error: {proc.stderr}"
 
     def test_eitc_example_parses(self):
-        """examples/eitc.rac parses with indexed parameter tables."""
-        eitc_path = Path(__file__).parent.parent / "examples" / "eitc.rac"
-        result = parse_rac(eitc_path.read_text())
+        """examples/eitc.yaml parses with indexed parameter tables."""
+        eitc_path = Path(__file__).parent.parent / "examples" / "eitc.yaml"
+        result = parse_rulespec(eitc_path.read_text())
 
         assert result.source is not None
         assert result.source.citation == "26 USC 32"
@@ -603,23 +603,23 @@ class TestExampleFiles:
         assert [variable.name for variable in result.variables] == ["eitc"]
 
     def test_eitc_example_compiles_to_valid_js(self):
-        """examples/eitc.rac compiles to valid JS."""
-        eitc_path = Path(__file__).parent.parent / "examples" / "eitc.rac"
+        """examples/eitc.yaml compiles to valid JS."""
+        eitc_path = Path(__file__).parent.parent / "examples" / "eitc.yaml"
         self._assert_valid_js(
-            parse_rac(eitc_path.read_text()).to_js_generator().generate()
+            parse_rulespec(eitc_path.read_text()).to_js_generator().generate()
         )
 
     def test_simple_tax_example_compiles(self):
-        """examples/simple_tax.rac compiles to valid JS."""
-        simple_path = Path(__file__).parent.parent / "examples" / "simple_tax.rac"
+        """examples/simple_tax.yaml compiles to valid JS."""
+        simple_path = Path(__file__).parent.parent / "examples" / "simple_tax.yaml"
         self._assert_valid_js(
-            parse_rac(simple_path.read_text()).to_js_generator().generate()
+            parse_rulespec(simple_path.read_text()).to_js_generator().generate()
         )
 
     def test_ctc_example_parses(self):
-        """examples/ctc.rac parses with indexed parameter values."""
-        ctc_path = Path(__file__).parent.parent / "examples" / "ctc.rac"
-        result = parse_rac(ctc_path.read_text())
+        """examples/ctc.yaml parses with indexed parameter values."""
+        ctc_path = Path(__file__).parent.parent / "examples" / "ctc.yaml"
+        result = parse_rulespec(ctc_path.read_text())
 
         assert result.source is not None
         assert result.source.citation == "26 USC 24"
@@ -628,16 +628,16 @@ class TestExampleFiles:
         assert [variable.name for variable in result.variables] == ["ctc", "actc"]
 
     def test_ctc_example_compiles_to_valid_js(self):
-        """examples/ctc.rac compiles to valid JS."""
-        ctc_path = Path(__file__).parent.parent / "examples" / "ctc.rac"
+        """examples/ctc.yaml compiles to valid JS."""
+        ctc_path = Path(__file__).parent.parent / "examples" / "ctc.yaml"
         self._assert_valid_js(
-            parse_rac(ctc_path.read_text()).to_js_generator().generate()
+            parse_rulespec(ctc_path.read_text()).to_js_generator().generate()
         )
 
     def test_snap_example_parses(self):
-        """examples/snap.rac parses with indexed parameter tables."""
-        snap_path = Path(__file__).parent.parent / "examples" / "snap.rac"
-        result = parse_rac(snap_path.read_text())
+        """examples/snap.yaml parses with indexed parameter tables."""
+        snap_path = Path(__file__).parent.parent / "examples" / "snap.yaml"
+        result = parse_rulespec(snap_path.read_text())
 
         assert result.source is not None
         assert result.source.citation == "7 USC 2017"
@@ -649,10 +649,10 @@ class TestExampleFiles:
         ]
 
     def test_snap_example_compiles_to_valid_js(self):
-        """examples/snap.rac compiles to valid JS."""
-        snap_path = Path(__file__).parent.parent / "examples" / "snap.rac"
+        """examples/snap.yaml compiles to valid JS."""
+        snap_path = Path(__file__).parent.parent / "examples" / "snap.yaml"
         self._assert_valid_js(
-            parse_rac(snap_path.read_text()).to_js_generator().generate()
+            parse_rulespec(snap_path.read_text()).to_js_generator().generate()
         )
 
 
@@ -661,7 +661,7 @@ class TestStatuteText:
 
     def test_parse_statute_text(self):
         """Triple-quoted statute text is preserved."""
-        result = parse_rac(
+        result = parse_rulespec(
             '''
 """
 In the case of an individual, there shall be imposed
@@ -677,7 +677,7 @@ income or excess MAGI over the threshold amount.
 
     def test_statute_text_optional(self):
         """Statute text is optional."""
-        result = parse_rac(
+        result = parse_rulespec(
             """
 rate:
   from 2024-01-01: 0.30
@@ -693,7 +693,7 @@ class TestLegacySyntaxRejection:
     def test_rejects_legacy_parameter_blocks(self):
         """Legacy brace syntax is rejected with a user-facing parser error."""
         with pytest.raises(ParserError, match="Legacy brace syntax"):
-            parse_rac(
+            parse_rulespec(
                 """
 parameter rate {
   source: "Test"
@@ -707,7 +707,7 @@ parameter rate {
     def test_rejects_legacy_variable_blocks(self):
         """Legacy variable braces are rejected instead of half-parsed."""
         with pytest.raises(ParserError, match="Legacy brace syntax"):
-            parse_rac(
+            parse_rulespec(
                 """
 variable tax {
   formula { return 0 }

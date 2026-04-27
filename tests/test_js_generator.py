@@ -1,5 +1,5 @@
 """
-Tests for rac-compile JS code generator.
+Tests for rulespec-compile JS code generator.
 
 TDD: Tests written first, implementation follows.
 """
@@ -9,7 +9,7 @@ import subprocess
 
 import pytest
 
-from src.rac_compile.js_generator import (
+from src.rulespec_compile.js_generator import (
     JSCodeGenerator,
     generate_eitc_calculator,
 )
@@ -80,7 +80,7 @@ class TestGenerateOutput:
         gen = JSCodeGenerator(module_name="Test Calculator")
         code = gen.generate()
         assert "Test Calculator" in code
-        assert "Auto-generated from RAC DSL" in code
+        assert "Auto-generated from RuleSpec" in code
 
     def test_generate_includes_params_object(self):
         """Generated code includes PARAMS constant."""

@@ -20,42 +20,42 @@ class TestValidationInit:
     """Test that validation __init__ exports are accessible."""
 
     def test_imports_comparator(self):
-        from src.rac_compile.validation import Comparator
+        from src.rulespec_compile.validation import Comparator
 
         assert Comparator is not None
 
     def test_imports_comparison_config(self):
-        from src.rac_compile.validation import ComparisonConfig
+        from src.rulespec_compile.validation import ComparisonConfig
 
         assert ComparisonConfig is not None
 
     def test_imports_comparison_results(self):
-        from src.rac_compile.validation import ComparisonResults
+        from src.rulespec_compile.validation import ComparisonResults
 
         assert ComparisonResults is not None
 
     def test_imports_cps_household(self):
-        from src.rac_compile.validation import CPSHousehold
+        from src.rulespec_compile.validation import CPSHousehold
 
         assert CPSHousehold is not None
 
     def test_imports_load_cps_data(self):
-        from src.rac_compile.validation import load_cps_data
+        from src.rulespec_compile.validation import load_cps_data
 
         assert callable(load_cps_data)
 
-    def test_imports_run_rac(self):
-        from src.rac_compile.validation import run_rac
+    def test_imports_run_rulespec(self):
+        from src.rulespec_compile.validation import run_rulespec
 
-        assert callable(run_rac)
+        assert callable(run_rulespec)
 
     def test_imports_run_policyengine(self):
-        from src.rac_compile.validation import run_policyengine
+        from src.rulespec_compile.validation import run_policyengine
 
         assert callable(run_policyengine)
 
     def test_imports_run_policyengine_household(self):
-        from src.rac_compile.validation import run_policyengine_household
+        from src.rulespec_compile.validation import run_policyengine_household
 
         assert callable(run_policyengine_household)
 
@@ -69,7 +69,7 @@ class TestComparisonConfig:
     """Test ComparisonConfig defaults and custom values."""
 
     def test_default_config(self):
-        from src.rac_compile.validation.comparator import ComparisonConfig
+        from src.rulespec_compile.validation.comparator import ComparisonConfig
 
         config = ComparisonConfig()
         assert config.eitc_tolerance == 1.0
@@ -79,7 +79,7 @@ class TestComparisonConfig:
         assert config.id_col == "household_id"
 
     def test_custom_config(self):
-        from src.rac_compile.validation.comparator import ComparisonConfig
+        from src.rulespec_compile.validation.comparator import ComparisonConfig
 
         config = ComparisonConfig(eitc_tolerance=5.0, snap_tolerance=100.0)
         assert config.eitc_tolerance == 5.0
@@ -90,12 +90,12 @@ class TestMismatchRecord:
     """Test MismatchRecord dataclass."""
 
     def test_mismatch_record_defaults(self):
-        from src.rac_compile.validation.comparator import MismatchRecord
+        from src.rulespec_compile.validation.comparator import MismatchRecord
 
         record = MismatchRecord(
             household_id=1,
             variable="eitc",
-            rac_value=100,
+            rulespec_value=100,
             policyengine_value=200,
             difference=-100,
         )
@@ -104,12 +104,12 @@ class TestMismatchRecord:
         assert record.weight == 1.0
 
     def test_mismatch_record_custom(self):
-        from src.rac_compile.validation.comparator import MismatchRecord
+        from src.rulespec_compile.validation.comparator import MismatchRecord
 
         record = MismatchRecord(
             household_id=1,
             variable="eitc",
-            rac_value=100,
+            rulespec_value=100,
             policyengine_value=200,
             difference=-100,
             pct_difference=-50.0,
@@ -129,11 +129,11 @@ class TestComparator:
         df = pd.DataFrame(
             {
                 "household_id": range(n),
-                "rac_eitc": [100] * n,
+                "rulespec_eitc": [100] * n,
                 "pe_eitc": [100] * n,
-                "rac_ctc": [200] * n,
+                "rulespec_ctc": [200] * n,
                 "pe_ctc": [200] * n,
-                "rac_actc": [50] * n,
+                "rulespec_actc": [50] * n,
                 "pe_actc": [50] * n,
                 "state_code": ["CA"] * n,
                 "weight": [1.0] * n,
@@ -143,7 +143,7 @@ class TestComparator:
             spm_df = pd.DataFrame(
                 {
                     "spm_unit_id": range(n),
-                    "rac_snap": [300] * n,
+                    "rulespec_snap": [300] * n,
                     "pe_snap": [300] * n,
                     "state_code": ["CA"] * n,
                     "weight": [1.0] * n,
@@ -153,7 +153,7 @@ class TestComparator:
         return df
 
     def test_compare_all_match(self):
-        from src.rac_compile.validation.comparator import Comparator
+        from src.rulespec_compile.validation.comparator import Comparator
 
         df = self._make_df(add_snap_data=True)
         comp = Comparator()
@@ -163,10 +163,10 @@ class TestComparator:
         assert len(results.mismatches["eitc"]) == 0
 
     def test_compare_with_mismatches(self):
-        from src.rac_compile.validation.comparator import Comparator
+        from src.rulespec_compile.validation.comparator import Comparator
 
         df = self._make_df()
-        df.loc[0, "rac_eitc"] = 500  # Big mismatch
+        df.loc[0, "rulespec_eitc"] = 500  # Big mismatch
         comp = Comparator()
         results = comp.compare(df)
         assert results.matches["eitc"] == 9
@@ -175,7 +175,7 @@ class TestComparator:
 
     def test_compare_with_nan_pe_values(self):
         """NaN PE values are excluded from comparison."""
-        from src.rac_compile.validation.comparator import Comparator
+        from src.rulespec_compile.validation.comparator import Comparator
 
         df = self._make_df()
         df.loc[0, "pe_eitc"] = np.nan
@@ -186,7 +186,7 @@ class TestComparator:
 
     def test_compare_all_nan(self):
         """All NaN PE values results in 0 matches."""
-        from src.rac_compile.validation.comparator import Comparator
+        from src.rulespec_compile.validation.comparator import Comparator
 
         df = self._make_df()
         df["pe_eitc"] = np.nan
@@ -196,12 +196,12 @@ class TestComparator:
 
     def test_compare_missing_columns(self):
         """Missing columns are skipped gracefully."""
-        from src.rac_compile.validation.comparator import Comparator
+        from src.rulespec_compile.validation.comparator import Comparator
 
         df = pd.DataFrame(
             {
                 "household_id": [1, 2],
-                "rac_eitc": [100, 200],
+                "rulespec_eitc": [100, 200],
                 "pe_eitc": [100, 200],
             }
         )
@@ -213,7 +213,7 @@ class TestComparator:
 
     def test_compare_snap_from_spm(self):
         """SNAP comparison uses SPM data when available."""
-        from src.rac_compile.validation.comparator import Comparator
+        from src.rulespec_compile.validation.comparator import Comparator
 
         df = self._make_df(add_snap_data=True)
         comp = Comparator()
@@ -223,18 +223,18 @@ class TestComparator:
 
     def test_compare_snap_spm_mismatch(self):
         """SNAP mismatches are tracked from SPM data."""
-        from src.rac_compile.validation.comparator import Comparator
+        from src.rulespec_compile.validation.comparator import Comparator
 
         df = self._make_df(add_snap_data=True)
         spm_df = df.attrs["spm_snap_data"]
-        spm_df.loc[0, "rac_snap"] = 1000  # Big mismatch
+        spm_df.loc[0, "rulespec_snap"] = 1000  # Big mismatch
         comp = Comparator()
         results = comp.compare(df)
         assert len(results.mismatches["snap"]) == 1
 
     def test_compare_no_spm_data(self):
         """No SPM data results in 0 SNAP matches."""
-        from src.rac_compile.validation.comparator import Comparator
+        from src.rulespec_compile.validation.comparator import Comparator
 
         df = self._make_df(add_snap_data=False)
         comp = Comparator()
@@ -244,25 +244,25 @@ class TestComparator:
 
     def test_compare_reads_execution_modes_from_dataframe_attrs(self):
         """Comparison results preserve execution-mode provenance from the runner."""
-        from src.rac_compile.validation.comparator import Comparator
+        from src.rulespec_compile.validation.comparator import Comparator
 
         df = self._make_df(add_snap_data=False)
-        df.attrs["rac_execution_mode"] = "compiled_example"
+        df.attrs["rulespec_execution_mode"] = "compiled_example"
         df.attrs["policyengine_execution_mode"] = "policyengine_household"
 
         results = Comparator().compare(df)
 
-        assert results.rac_execution_mode == "compiled_example"
+        assert results.rulespec_execution_mode == "compiled_example"
         assert results.policyengine_execution_mode == "policyengine_household"
 
     def test_pct_difference_calculation(self):
         """Percentage difference is calculated correctly."""
-        from src.rac_compile.validation.comparator import Comparator
+        from src.rulespec_compile.validation.comparator import Comparator
 
         df = pd.DataFrame(
             {
                 "household_id": [1],
-                "rac_eitc": [150.0],
+                "rulespec_eitc": [150.0],
                 "pe_eitc": [100.0],
                 "state_code": ["CA"],
                 "weight": [1.0],
@@ -275,12 +275,12 @@ class TestComparator:
 
     def test_pct_difference_zero_pe(self):
         """Percentage difference is None when PE value is 0."""
-        from src.rac_compile.validation.comparator import Comparator
+        from src.rulespec_compile.validation.comparator import Comparator
 
         df = pd.DataFrame(
             {
                 "household_id": [1],
-                "rac_eitc": [100.0],
+                "rulespec_eitc": [100.0],
                 "pe_eitc": [0.0],
                 "state_code": ["CA"],
                 "weight": [1.0],
@@ -293,7 +293,7 @@ class TestComparator:
 
     def test_custom_config_tolerance(self):
         """Custom tolerance changes match behavior."""
-        from src.rac_compile.validation.comparator import (
+        from src.rulespec_compile.validation.comparator import (
             Comparator,
             ComparisonConfig,
         )
@@ -301,7 +301,7 @@ class TestComparator:
         df = pd.DataFrame(
             {
                 "household_id": [1],
-                "rac_eitc": [101.0],
+                "rulespec_eitc": [101.0],
                 "pe_eitc": [100.0],
                 "state_code": ["CA"],
                 "weight": [1.0],
@@ -323,7 +323,7 @@ class TestComparisonResults:
     """Test ComparisonResults summary, detailed_report, and save_report."""
 
     def _make_results(self, with_mismatches=False, with_data=False):
-        from src.rac_compile.validation.comparator import (
+        from src.rulespec_compile.validation.comparator import (
             ComparisonConfig,
             ComparisonResults,
             MismatchRecord,
@@ -337,7 +337,7 @@ class TestComparisonResults:
                     MismatchRecord(
                         household_id=i,
                         variable="eitc",
-                        rac_value=100 + i * 10,
+                        rulespec_value=100 + i * 10,
                         policyengine_value=200,
                         difference=-(100 - i * 10),
                         state_code="CA",
@@ -360,7 +360,7 @@ class TestComparisonResults:
             },
             config=config,
             full_data=pd.DataFrame({"a": [1, 2]}) if with_data else None,
-            rac_execution_mode="compiled_example",
+            rulespec_execution_mode="compiled_example",
             policyengine_execution_mode="policyengine_household",
         )
 
@@ -368,7 +368,7 @@ class TestComparisonResults:
         results = self._make_results()
         summary = results.summary()
         assert summary["total_households"] == 100
-        assert summary["rac_execution_mode"] == "compiled_example"
+        assert summary["rulespec_execution_mode"] == "compiled_example"
         assert summary["policyengine_execution_mode"] == "policyengine_household"
         assert "eitc" in summary["variables"]
         assert summary["variables"]["eitc"]["match_rate"] == 100.0
@@ -376,9 +376,9 @@ class TestComparisonResults:
     def test_detailed_report_no_mismatches(self):
         results = self._make_results()
         report = results.detailed_report()
-        assert "RAC vs PolicyEngine-US Validation Report" in report
+        assert "RuleSpec vs PolicyEngine-US Validation Report" in report
         assert "Total Households: 100" in report
-        assert "RAC execution mode: compiled_example" in report
+        assert "RuleSpec execution mode: compiled_example" in report
         assert "PolicyEngine execution mode: policyengine_household" in report
         assert "EITC Comparison:" in report
         assert "Matches:" in report
@@ -421,7 +421,7 @@ class TestValidateFunction:
     """Test the validate() convenience function."""
 
     def test_validate_sample(self):
-        from src.rac_compile.validation.comparator import validate
+        from src.rulespec_compile.validation.comparator import validate
 
         # Setup mock data
         mock_df = pd.DataFrame(
@@ -438,32 +438,32 @@ class TestValidateFunction:
         )
 
         results_df = mock_df.copy()
-        results_df["rac_eitc"] = [100, 200]
+        results_df["rulespec_eitc"] = [100, 200]
         results_df["pe_eitc"] = [100, 200]
-        results_df["rac_ctc"] = [100, 200]
+        results_df["rulespec_ctc"] = [100, 200]
         results_df["pe_ctc"] = [100, 200]
-        results_df["rac_actc"] = [50, 100]
+        results_df["rulespec_actc"] = [50, 100]
         results_df["pe_actc"] = [50, 100]
         results_df["state_code"] = ["CA", "NY"]
-        results_df.attrs["rac_execution_mode"] = "compiled_example"
+        results_df.attrs["rulespec_execution_mode"] = "compiled_example"
         results_df.attrs["policyengine_execution_mode"] = "policyengine_household"
 
         with (
             patch(
-                "src.rac_compile.validation.cps_loader.load_cps_data",
+                "src.rulespec_compile.validation.cps_loader.load_cps_data",
                 return_value=mock_df,
             ),
             patch(
-                "src.rac_compile.validation.runners.run_both",
+                "src.rulespec_compile.validation.runners.run_both",
                 return_value=results_df,
             ),
         ):
             results = validate(source="policyengine", year=2025, sample_size=2)
             assert results.total_households == 2
-            assert results.rac_execution_mode == "compiled_example"
+            assert results.rulespec_execution_mode == "compiled_example"
 
     def test_validate_with_output_dir(self, tmp_path):
-        from src.rac_compile.validation.comparator import validate
+        from src.rulespec_compile.validation.comparator import validate
 
         mock_df = pd.DataFrame(
             {
@@ -479,21 +479,21 @@ class TestValidateFunction:
         )
 
         results_df = mock_df.copy()
-        results_df["rac_eitc"] = [100]
+        results_df["rulespec_eitc"] = [100]
         results_df["pe_eitc"] = [100]
-        results_df["rac_ctc"] = [100]
+        results_df["rulespec_ctc"] = [100]
         results_df["pe_ctc"] = [100]
-        results_df["rac_actc"] = [50]
+        results_df["rulespec_actc"] = [50]
         results_df["pe_actc"] = [50]
         results_df["state_code"] = ["CA"]
 
         with (
             patch(
-                "src.rac_compile.validation.cps_loader.load_cps_data",
+                "src.rulespec_compile.validation.cps_loader.load_cps_data",
                 return_value=mock_df,
             ),
             patch(
-                "src.rac_compile.validation.runners.run_both",
+                "src.rulespec_compile.validation.runners.run_both",
                 return_value=results_df,
             ),
         ):
@@ -506,43 +506,43 @@ class TestValidateFullFunction:
     """Test the validate_full() convenience function."""
 
     def test_validate_full(self):
-        from src.rac_compile.validation.comparator import validate_full
+        from src.rulespec_compile.validation.comparator import validate_full
 
         results_df = pd.DataFrame(
             {
                 "household_id": [1, 2],
-                "rac_eitc": [100, 200],
+                "rulespec_eitc": [100, 200],
                 "pe_eitc": [100, 200],
-                "rac_ctc": [100, 200],
+                "rulespec_ctc": [100, 200],
                 "pe_ctc": [100, 200],
-                "rac_actc": [50, 100],
+                "rulespec_actc": [50, 100],
                 "pe_actc": [50, 100],
                 "state_code": ["CA", "NY"],
                 "weight": [1.0, 1.0],
             }
         )
-        results_df.attrs["rac_execution_mode"] = "compiled_batch"
+        results_df.attrs["rulespec_execution_mode"] = "compiled_batch"
         results_df.attrs["policyengine_execution_mode"] = "policyengine_microsim"
 
         with patch(
-            "src.rac_compile.validation.runners.run_both_vectorized",
+            "src.rulespec_compile.validation.runners.run_both_vectorized",
             return_value=results_df,
         ):
             results = validate_full(year=2025)
             assert results.total_households == 2
-            assert results.rac_execution_mode == "compiled_batch"
+            assert results.rulespec_execution_mode == "compiled_batch"
 
     def test_validate_full_with_output_dir(self, tmp_path):
-        from src.rac_compile.validation.comparator import validate_full
+        from src.rulespec_compile.validation.comparator import validate_full
 
         results_df = pd.DataFrame(
             {
                 "household_id": [1],
-                "rac_eitc": [100],
+                "rulespec_eitc": [100],
                 "pe_eitc": [100],
-                "rac_ctc": [100],
+                "rulespec_ctc": [100],
                 "pe_ctc": [100],
-                "rac_actc": [50],
+                "rulespec_actc": [50],
                 "pe_actc": [50],
                 "state_code": ["CA"],
                 "weight": [1.0],
@@ -550,7 +550,7 @@ class TestValidateFullFunction:
         )
 
         with patch(
-            "src.rac_compile.validation.runners.run_both_vectorized",
+            "src.rulespec_compile.validation.runners.run_both_vectorized",
             return_value=results_df,
         ):
             output_dir = str(tmp_path / "full_results")
@@ -567,7 +567,7 @@ class TestCPSHousehold:
     """Test CPSHousehold dataclass."""
 
     def test_create_household(self):
-        from src.rac_compile.validation.cps_loader import CPSHousehold
+        from src.rulespec_compile.validation.cps_loader import CPSHousehold
 
         hh = CPSHousehold(
             household_id=1,
@@ -584,7 +584,7 @@ class TestCPSHousehold:
         assert hh.weight == 1.0  # default
 
     def test_custom_weight(self):
-        from src.rac_compile.validation.cps_loader import CPSHousehold
+        from src.rulespec_compile.validation.cps_loader import CPSHousehold
 
         hh = CPSHousehold(
             household_id=1,
@@ -605,19 +605,19 @@ class TestFipsToStateCode:
     """Test FIPS code to state code conversion."""
 
     def test_known_state(self):
-        from src.rac_compile.validation.cps_loader import fips_to_state_code
+        from src.rulespec_compile.validation.cps_loader import fips_to_state_code
 
         assert fips_to_state_code(6) == "CA"
         assert fips_to_state_code(36) == "NY"
         assert fips_to_state_code(48) == "TX"
 
     def test_unknown_fips(self):
-        from src.rac_compile.validation.cps_loader import fips_to_state_code
+        from src.rulespec_compile.validation.cps_loader import fips_to_state_code
 
         assert fips_to_state_code(999) == "US"
 
     def test_zero_fips(self):
-        from src.rac_compile.validation.cps_loader import fips_to_state_code
+        from src.rulespec_compile.validation.cps_loader import fips_to_state_code
 
         assert fips_to_state_code(0) == "US"
 
@@ -627,7 +627,9 @@ class TestLoadCPSFromPolicyEngine:
 
     def test_import_error_message(self):
         """Shows helpful error when policyengine-us not installed."""
-        from src.rac_compile.validation.cps_loader import load_cps_from_policyengine
+        from src.rulespec_compile.validation.cps_loader import (
+            load_cps_from_policyengine,
+        )
 
         with patch.dict(sys.modules, {"policyengine_us": None}):
             with pytest.raises(ImportError, match="policyengine-us"):
@@ -663,7 +665,7 @@ class TestLoadCPSFromPolicyEngine:
             # Need to reimport to pick up the mocked module
             import importlib
 
-            import src.rac_compile.validation.cps_loader as cps_mod
+            import src.rulespec_compile.validation.cps_loader as cps_mod
 
             importlib.reload(cps_mod)
             df = cps_mod.load_cps_from_policyengine(year=2025)
@@ -699,7 +701,7 @@ class TestLoadCPSFromPolicyEngine:
         with patch.dict(sys.modules, {"policyengine_us": mock_pe_mod}):
             import importlib
 
-            import src.rac_compile.validation.cps_loader as cps_mod
+            import src.rulespec_compile.validation.cps_loader as cps_mod
 
             importlib.reload(cps_mod)
             df = cps_mod.load_cps_from_policyengine(year=2025, sample_size=2)
@@ -710,7 +712,7 @@ class TestLoadCPSFromCSV:
     """Test load_cps_from_csv."""
 
     def test_loads_csv_file(self, tmp_path):
-        from src.rac_compile.validation.cps_loader import load_cps_from_csv
+        from src.rulespec_compile.validation.cps_loader import load_cps_from_csv
 
         csv_file = tmp_path / "test.csv"
         csv_file.write_text(
@@ -729,7 +731,7 @@ class TestLoadCPSFromCSV:
         assert df.loc[0, "household_size"] == 4  # 1 + 1 (joint) + 2 children
 
     def test_loads_csv_with_sample(self, tmp_path):
-        from src.rac_compile.validation.cps_loader import load_cps_from_csv
+        from src.rulespec_compile.validation.cps_loader import load_cps_from_csv
 
         csv_file = tmp_path / "test.csv"
         lines = [
@@ -744,7 +746,7 @@ class TestLoadCPSFromCSV:
 
     def test_csv_missing_columns_default_to_zero(self, tmp_path):
         """Missing optional columns default to 0."""
-        from src.rac_compile.validation.cps_loader import load_cps_from_csv
+        from src.rulespec_compile.validation.cps_loader import load_cps_from_csv
 
         csv_file = tmp_path / "minimal.csv"
         csv_file.write_text("taxsimid,pwages\n1,30000\n")
@@ -758,19 +760,19 @@ class TestLoadCPSData:
     """Test load_cps_data dispatch function."""
 
     def test_unknown_source_raises(self):
-        from src.rac_compile.validation.cps_loader import load_cps_data
+        from src.rulespec_compile.validation.cps_loader import load_cps_data
 
         with pytest.raises(ValueError, match="Unknown source"):
             load_cps_data(source="unknown")
 
     def test_csv_without_path_raises(self):
-        from src.rac_compile.validation.cps_loader import load_cps_data
+        from src.rulespec_compile.validation.cps_loader import load_cps_data
 
         with pytest.raises(ValueError, match="csv_path required"):
             load_cps_data(source="csv")
 
     def test_csv_source_delegates(self, tmp_path):
-        from src.rac_compile.validation.cps_loader import load_cps_data
+        from src.rulespec_compile.validation.cps_loader import load_cps_data
 
         csv_file = tmp_path / "test.csv"
         csv_file.write_text(
@@ -781,9 +783,9 @@ class TestLoadCPSData:
         df = load_cps_data(source="csv", csv_path=str(csv_file))
         assert len(df) == 1
 
-    @patch("src.rac_compile.validation.cps_loader.load_cps_from_policyengine")
+    @patch("src.rulespec_compile.validation.cps_loader.load_cps_from_policyengine")
     def test_policyengine_source_delegates(self, mock_load_pe):
-        from src.rac_compile.validation.cps_loader import load_cps_data
+        from src.rulespec_compile.validation.cps_loader import load_cps_data
 
         mock_load_pe.return_value = pd.DataFrame({"household_id": [1]})
         df = load_cps_data(source="policyengine")
@@ -795,7 +797,7 @@ class TestIterateHouseholds:
     """Test iterate_households generator."""
 
     def test_yields_cps_household_objects(self):
-        from src.rac_compile.validation.cps_loader import iterate_households
+        from src.rulespec_compile.validation.cps_loader import iterate_households
 
         df = pd.DataFrame(
             {
@@ -823,15 +825,17 @@ class TestIterateHouseholds:
 # ============================================================
 
 
-class TestRunRAC:
-    """Test run_rac function."""
+class TestRunRuleSpec:
+    """Test run_rulespec function."""
 
-    @patch("src.rac_compile.validation.runners._load_compiled_validation_calculators")
-    def test_run_rac_uses_compiled_examples(self, mock_load):
-        """run_rac sources values from the compiled example calculators."""
-        from src.rac_compile.validation.runners import (
+    @patch(
+        "src.rulespec_compile.validation.runners._load_compiled_validation_calculators"
+    )
+    def test_run_rulespec_uses_compiled_examples(self, mock_load):
+        """run_rulespec sources values from the compiled example calculators."""
+        from src.rulespec_compile.validation.runners import (
             CompiledValidationCalculators,
-            run_rac,
+            run_rulespec,
         )
 
         mock_load.return_value = CompiledValidationCalculators(
@@ -851,15 +855,15 @@ class TestRunRAC:
             }
         )
 
-        results = run_rac(df, show_progress=False)
+        results = run_rulespec(df, show_progress=False)
 
-        assert results.loc[0, "rac_eitc"] == 111
-        assert results.loc[0, "rac_ctc"] == 222
-        assert results.loc[0, "rac_actc"] == 333
-        assert results.loc[0, "rac_snap"] == 444
+        assert results.loc[0, "rulespec_eitc"] == 111
+        assert results.loc[0, "rulespec_ctc"] == 222
+        assert results.loc[0, "rulespec_actc"] == 333
+        assert results.loc[0, "rulespec_snap"] == 444
 
-    def test_run_rac_calculates_all(self):
-        from src.rac_compile.validation.runners import run_rac
+    def test_run_rulespec_calculates_all(self):
+        from src.rulespec_compile.validation.runners import run_rulespec
 
         df = pd.DataFrame(
             {
@@ -872,23 +876,23 @@ class TestRunRAC:
                 "gross_monthly_income": [1250, 0],
             }
         )
-        results = run_rac(df, show_progress=False)
-        assert "rac_eitc" in results.columns
-        assert "rac_ctc" in results.columns
-        assert "rac_actc" in results.columns
-        assert "rac_snap" in results.columns
+        results = run_rulespec(df, show_progress=False)
+        assert "rulespec_eitc" in results.columns
+        assert "rulespec_ctc" in results.columns
+        assert "rulespec_actc" in results.columns
+        assert "rulespec_snap" in results.columns
         assert len(results) == 2
-        assert results.attrs["rac_execution_mode"] == "compiled_example"
+        assert results.attrs["rulespec_execution_mode"] == "compiled_example"
 
-    def test_run_rac_matches_reference_examples(self):
+    def test_run_rulespec_matches_reference_examples(self):
         """Compiled sample validation calculators stay aligned with references."""
-        from src.rac_compile.calculators import (
+        from src.rulespec_compile.calculators import (
             calculate_actc,
             calculate_ctc,
             calculate_eitc,
             calculate_snap_benefit,
         )
-        from src.rac_compile.validation.runners import run_rac
+        from src.rulespec_compile.validation.runners import run_rulespec
 
         df = pd.DataFrame(
             {
@@ -902,10 +906,10 @@ class TestRunRAC:
             }
         )
 
-        results = run_rac(df, show_progress=False)
+        results = run_rulespec(df, show_progress=False)
 
         assert (
-            results.loc[0, "rac_eitc"]
+            results.loc[0, "rulespec_eitc"]
             == calculate_eitc(
                 earned_income=15000,
                 agi=15000,
@@ -914,7 +918,7 @@ class TestRunRAC:
             ).eitc
         )
         assert (
-            results.loc[0, "rac_ctc"]
+            results.loc[0, "rulespec_ctc"]
             == calculate_ctc(
                 n_qualifying_children=1,
                 agi=15000,
@@ -922,23 +926,23 @@ class TestRunRAC:
             ).ctc
         )
         assert (
-            results.loc[0, "rac_actc"]
+            results.loc[0, "rulespec_actc"]
             == calculate_actc(
                 n_qualifying_children=1,
                 earned_income=15000,
             ).actc
         )
         assert (
-            results.loc[0, "rac_snap"]
+            results.loc[0, "rulespec_snap"]
             == calculate_snap_benefit(
                 household_size=2,
                 gross_income=1250,
             ).benefit
         )
 
-    def test_run_rac_with_progress(self):
-        """run_rac with show_progress=True uses tqdm."""
-        from src.rac_compile.validation.runners import run_rac
+    def test_run_rulespec_with_progress(self):
+        """run_rulespec with show_progress=True uses tqdm."""
+        from src.rulespec_compile.validation.runners import run_rulespec
 
         df = pd.DataFrame(
             {
@@ -951,7 +955,7 @@ class TestRunRAC:
                 "gross_monthly_income": [1250],
             }
         )
-        results = run_rac(df, show_progress=True)
+        results = run_rulespec(df, show_progress=True)
         assert len(results) == 1
 
 
@@ -960,16 +964,16 @@ class TestRunPolicyEngine:
 
     def test_import_error(self):
         """Shows helpful error when policyengine-us not installed."""
-        from src.rac_compile.validation.runners import run_policyengine
+        from src.rulespec_compile.validation.runners import run_policyengine
 
         with patch.dict(sys.modules, {"policyengine_us": None}):
             with pytest.raises(ImportError, match="policyengine-us"):
                 run_policyengine(pd.DataFrame())
 
-    @patch("src.rac_compile.validation.runners._run_single_pe_simulation")
+    @patch("src.rulespec_compile.validation.runners._run_single_pe_simulation")
     def test_run_policyengine_success(self, mock_sim):
         """Runs PE simulation for each household."""
-        from src.rac_compile.validation.runners import run_policyengine
+        from src.rulespec_compile.validation.runners import run_policyengine
 
         mock_sim.return_value = {
             "pe_eitc": 500.0,
@@ -999,10 +1003,10 @@ class TestRunPolicyEngine:
                 results.attrs["policyengine_execution_mode"] == "policyengine_household"
             )
 
-    @patch("src.rac_compile.validation.runners._run_single_pe_simulation")
+    @patch("src.rulespec_compile.validation.runners._run_single_pe_simulation")
     def test_run_policyengine_handles_errors(self, mock_sim):
         """Continues with NaN when simulation fails."""
-        from src.rac_compile.validation.runners import run_policyengine
+        from src.rulespec_compile.validation.runners import run_policyengine
 
         mock_sim.side_effect = Exception("Simulation failed")
 
@@ -1024,10 +1028,10 @@ class TestRunPolicyEngine:
             assert np.isnan(results.loc[0, "pe_eitc"])
             assert "pe_error" in results.columns
 
-    @patch("src.rac_compile.validation.runners._run_single_pe_simulation")
+    @patch("src.rulespec_compile.validation.runners._run_single_pe_simulation")
     def test_run_policyengine_with_progress(self, mock_sim):
         """run_policyengine with show_progress=True uses tqdm."""
-        from src.rac_compile.validation.runners import run_policyengine
+        from src.rulespec_compile.validation.runners import run_policyengine
 
         mock_sim.return_value = {
             "pe_eitc": 500.0,
@@ -1057,7 +1061,7 @@ class TestRunSinglePESimulation:
     """Test _run_single_pe_simulation with mocked PE."""
 
     def test_single_simulation(self):
-        from src.rac_compile.validation.runners import _run_single_pe_simulation
+        from src.rulespec_compile.validation.runners import _run_single_pe_simulation
 
         mock_sim_instance = MagicMock()
         mock_sim_instance.calculate.side_effect = lambda var, year: np.array([100.0])
@@ -1082,7 +1086,7 @@ class TestRunSinglePESimulation:
 
     def test_simulation_with_joint(self):
         """Joint filer includes spouse in simulation."""
-        from src.rac_compile.validation.runners import _run_single_pe_simulation
+        from src.rulespec_compile.validation.runners import _run_single_pe_simulation
 
         mock_sim_instance = MagicMock()
         mock_sim_instance.calculate.side_effect = lambda var, year: np.array([200.0])
@@ -1109,7 +1113,7 @@ class TestRunSinglePESimulation:
 
     def test_simulation_with_extra_members(self):
         """Extra household members (beyond tax unit) added for SNAP."""
-        from src.rac_compile.validation.runners import _run_single_pe_simulation
+        from src.rulespec_compile.validation.runners import _run_single_pe_simulation
 
         mock_sim_instance = MagicMock()
         mock_sim_instance.calculate.side_effect = lambda var, year: np.array([100.0])
@@ -1140,7 +1144,7 @@ class TestRunPolicyEngineHousehold:
     """Test the single-household PolicyEngine bridge helper."""
 
     def test_household_helper_annualizes_monthly_snap_income(self):
-        from src.rac_compile.validation.runners import run_policyengine_household
+        from src.rulespec_compile.validation.runners import run_policyengine_household
 
         mock_sim_instance = MagicMock()
         mock_sim_instance.calculate.side_effect = lambda var, year: np.array([100.0])
@@ -1167,10 +1171,10 @@ class TestRunPolicyEngineHousehold:
 class TestRunBoth:
     """Test run_both function."""
 
-    @patch("src.rac_compile.validation.runners.run_policyengine")
-    @patch("src.rac_compile.validation.runners.run_rac")
-    def test_run_both_merges(self, mock_rac, mock_pe):
-        from src.rac_compile.validation.runners import run_both
+    @patch("src.rulespec_compile.validation.runners.run_policyengine")
+    @patch("src.rulespec_compile.validation.runners.run_rulespec")
+    def test_run_both_merges(self, mock_rulespec, mock_pe):
+        from src.rulespec_compile.validation.runners import run_both
 
         df = pd.DataFrame(
             {
@@ -1178,13 +1182,13 @@ class TestRunBoth:
                 "earned_income": [15000, 20000],
             }
         )
-        mock_rac.return_value = pd.DataFrame(
+        mock_rulespec.return_value = pd.DataFrame(
             {
                 "household_id": [1, 2],
-                "rac_eitc": [100, 200],
+                "rulespec_eitc": [100, 200],
             }
         )
-        mock_rac.return_value.attrs["rac_execution_mode"] = "compiled_example"
+        mock_rulespec.return_value.attrs["rulespec_execution_mode"] = "compiled_example"
         mock_pe.return_value = pd.DataFrame(
             {
                 "household_id": [1, 2],
@@ -1195,18 +1199,18 @@ class TestRunBoth:
             "policyengine_household"
         )
         result = run_both(df)
-        assert "rac_eitc" in result.columns
+        assert "rulespec_eitc" in result.columns
         assert "pe_eitc" in result.columns
         assert len(result) == 2
-        assert result.attrs["rac_execution_mode"] == "compiled_example"
+        assert result.attrs["rulespec_execution_mode"] == "compiled_example"
         assert result.attrs["policyengine_execution_mode"] == "policyengine_household"
 
 
-class TestRunRACVectorized:
-    """Test run_rac_vectorized function."""
+class TestRunRuleSpecVectorized:
+    """Test run_rulespec_vectorized function."""
 
     def test_vectorized_calculation(self):
-        from src.rac_compile.validation.runners import run_rac_vectorized
+        from src.rulespec_compile.validation.runners import run_rulespec_vectorized
 
         df = pd.DataFrame(
             {
@@ -1219,29 +1223,29 @@ class TestRunRACVectorized:
                 "gross_monthly_income": [1250, 0, 4167],
             }
         )
-        results = run_rac_vectorized(df)
-        assert "rac_eitc" in results.columns
-        assert "rac_ctc" in results.columns
-        assert "rac_actc" in results.columns
-        assert "rac_snap" in results.columns
+        results = run_rulespec_vectorized(df)
+        assert "rulespec_eitc" in results.columns
+        assert "rulespec_ctc" in results.columns
+        assert "rulespec_actc" in results.columns
+        assert "rulespec_snap" in results.columns
         assert len(results) == 3
-        assert results.attrs["rac_execution_mode"] == "compiled_batch"
+        assert results.attrs["rulespec_execution_mode"] == "compiled_batch"
         # Zero income should have zero EITC
-        assert results.loc[1, "rac_eitc"] == 0
+        assert results.loc[1, "rulespec_eitc"] == 0
 
 
 class TestRunPEMicrosim:
     """Test run_policyengine_microsim with mocked PE."""
 
     def test_import_error(self):
-        from src.rac_compile.validation.runners import run_policyengine_microsim
+        from src.rulespec_compile.validation.runners import run_policyengine_microsim
 
         with patch.dict(sys.modules, {"policyengine_us": None}):
             with pytest.raises(ImportError, match="policyengine-us"):
                 run_policyengine_microsim()
 
     def test_microsim_runs(self):
-        from src.rac_compile.validation.runners import run_policyengine_microsim
+        from src.rulespec_compile.validation.runners import run_policyengine_microsim
 
         mock_sim = MagicMock()
 
@@ -1273,14 +1277,14 @@ class TestRunBothVectorized:
     """Test run_both_vectorized with mocked PE."""
 
     def test_import_error(self):
-        from src.rac_compile.validation.runners import run_both_vectorized
+        from src.rulespec_compile.validation.runners import run_both_vectorized
 
         with patch.dict(sys.modules, {"policyengine_us": None}):
             with pytest.raises(ImportError, match="policyengine-us"):
                 run_both_vectorized()
 
     def test_full_vectorized_pipeline(self):
-        from src.rac_compile.validation.runners import run_both_vectorized
+        from src.rulespec_compile.validation.runners import run_both_vectorized
 
         mock_sim = MagicMock()
 
@@ -1320,11 +1324,11 @@ class TestRunBothVectorized:
 
         with patch.dict(sys.modules, {"policyengine_us": mock_pe}):
             results = run_both_vectorized(year=2025)
-            assert "rac_eitc" in results.columns
+            assert "rulespec_eitc" in results.columns
             assert "pe_eitc" in results.columns
             assert "spm_snap_data" in results.attrs
             spm_df = results.attrs["spm_snap_data"]
-            assert "rac_snap" in spm_df.columns
+            assert "rulespec_snap" in spm_df.columns
             assert "pe_snap" in spm_df.columns
 
 
@@ -1336,11 +1340,11 @@ class TestRunBothVectorized:
 class TestValidationCLI:
     """Test validation CLI."""
 
-    @patch("src.rac_compile.validation.cli.validate_full")
+    @patch("src.rulespec_compile.validation.cli.validate_full")
     def test_full_mode(self, mock_validate_full):
         """Full mode calls validate_full."""
-        from src.rac_compile.validation.cli import main
-        from src.rac_compile.validation.comparator import ComparisonResults
+        from src.rulespec_compile.validation.cli import main
+        from src.rulespec_compile.validation.comparator import ComparisonResults
 
         mock_validate_full.return_value = ComparisonResults(
             total_households=100,
@@ -1351,15 +1355,15 @@ class TestValidationCLI:
             config=MagicMock(),
         )
 
-        with patch("sys.argv", ["rac-validate", "--mode", "full"]):
+        with patch("sys.argv", ["rulespec-validate", "--mode", "full"]):
             main()
             mock_validate_full.assert_called_once()
 
-    @patch("src.rac_compile.validation.cli.validate")
+    @patch("src.rulespec_compile.validation.cli.validate")
     def test_sample_mode(self, mock_validate):
         """Sample mode calls validate."""
-        from src.rac_compile.validation.cli import main
-        from src.rac_compile.validation.comparator import ComparisonResults
+        from src.rulespec_compile.validation.cli import main
+        from src.rulespec_compile.validation.comparator import ComparisonResults
 
         mock_validate.return_value = ComparisonResults(
             total_households=10,
@@ -1372,27 +1376,27 @@ class TestValidationCLI:
 
         with patch(
             "sys.argv",
-            ["rac-validate", "--mode", "sample", "--source", "policyengine"],
+            ["rulespec-validate", "--mode", "sample", "--source", "policyengine"],
         ):
             main()
             mock_validate.assert_called_once()
 
     def test_sample_csv_without_path_errors(self):
         """Sample mode with csv source but no path errors."""
-        from src.rac_compile.validation.cli import main
+        from src.rulespec_compile.validation.cli import main
 
         with patch(
             "sys.argv",
-            ["rac-validate", "--mode", "sample", "--source", "csv"],
+            ["rulespec-validate", "--mode", "sample", "--source", "csv"],
         ):
             with pytest.raises(SystemExit):
                 main()
 
-    @patch("src.rac_compile.validation.cli.validate_full")
+    @patch("src.rulespec_compile.validation.cli.validate_full")
     def test_low_match_rate_exits_1(self, mock_validate_full):
         """Low match rate exits with code 1."""
-        from src.rac_compile.validation.cli import main
-        from src.rac_compile.validation.comparator import (
+        from src.rulespec_compile.validation.cli import main
+        from src.rulespec_compile.validation.comparator import (
             ComparisonResults,
             MismatchRecord,
         )
@@ -1401,7 +1405,7 @@ class TestValidationCLI:
             MismatchRecord(
                 household_id=i,
                 variable="eitc",
-                rac_value=100,
+                rulespec_value=100,
                 policyengine_value=500,
                 difference=-400,
             )
@@ -1417,42 +1421,42 @@ class TestValidationCLI:
             config=MagicMock(),
         )
 
-        with patch("sys.argv", ["rac-validate", "--mode", "full"]):
+        with patch("sys.argv", ["rulespec-validate", "--mode", "full"]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
             assert exc_info.value.code == 1
 
-    @patch("src.rac_compile.validation.cli.validate_full")
+    @patch("src.rulespec_compile.validation.cli.validate_full")
     def test_import_error_exits_1(self, mock_validate_full):
         """ImportError shows install instructions and exits 1."""
-        from src.rac_compile.validation.cli import main
+        from src.rulespec_compile.validation.cli import main
 
         mock_validate_full.side_effect = ImportError(
             "No module named 'policyengine_us'"
         )
 
-        with patch("sys.argv", ["rac-validate", "--mode", "full"]):
+        with patch("sys.argv", ["rulespec-validate", "--mode", "full"]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
             assert exc_info.value.code == 1
 
-    @patch("src.rac_compile.validation.cli.validate_full")
+    @patch("src.rulespec_compile.validation.cli.validate_full")
     def test_generic_error_exits_1(self, mock_validate_full):
         """Generic errors show traceback and exit 1."""
-        from src.rac_compile.validation.cli import main
+        from src.rulespec_compile.validation.cli import main
 
         mock_validate_full.side_effect = RuntimeError("Something went wrong")
 
-        with patch("sys.argv", ["rac-validate", "--mode", "full"]):
+        with patch("sys.argv", ["rulespec-validate", "--mode", "full"]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
             assert exc_info.value.code == 1
 
-    @patch("src.rac_compile.validation.cli.validate")
+    @patch("src.rulespec_compile.validation.cli.validate")
     def test_sample_csv_with_path(self, mock_validate):
         """Sample mode with csv source and path works."""
-        from src.rac_compile.validation.cli import main
-        from src.rac_compile.validation.comparator import ComparisonResults
+        from src.rulespec_compile.validation.cli import main
+        from src.rulespec_compile.validation.comparator import ComparisonResults
 
         mock_validate.return_value = ComparisonResults(
             total_households=5,
@@ -1466,7 +1470,7 @@ class TestValidationCLI:
         with patch(
             "sys.argv",
             [
-                "rac-validate",
+                "rulespec-validate",
                 "--mode",
                 "sample",
                 "--source",
@@ -1483,11 +1487,11 @@ class TestValidationCLI:
                 or call_kwargs.kwargs.get("csv_path") == "data.csv"
             )
 
-    @patch("src.rac_compile.validation.cli.validate_full")
+    @patch("src.rulespec_compile.validation.cli.validate_full")
     def test_tolerance_args_passed(self, mock_validate_full):
         """Custom tolerance args are passed to config."""
-        from src.rac_compile.validation.cli import main
-        from src.rac_compile.validation.comparator import ComparisonResults
+        from src.rulespec_compile.validation.cli import main
+        from src.rulespec_compile.validation.comparator import ComparisonResults
 
         mock_validate_full.return_value = ComparisonResults(
             total_households=100,
@@ -1501,7 +1505,7 @@ class TestValidationCLI:
         with patch(
             "sys.argv",
             [
-                "rac-validate",
+                "rulespec-validate",
                 "--mode",
                 "full",
                 "--eitc-tolerance",
@@ -1519,11 +1523,11 @@ class TestValidationCLI:
             assert config.ctc_tolerance == 3.0
             assert config.snap_tolerance == 100.0
 
-    @patch("src.rac_compile.validation.cli.validate_full")
+    @patch("src.rulespec_compile.validation.cli.validate_full")
     def test_no_valid_rates_doesnt_crash(self, mock_validate_full):
         """Empty valid_rates (all variables have 0 data) doesn't crash."""
-        from src.rac_compile.validation.cli import main
-        from src.rac_compile.validation.comparator import ComparisonResults
+        from src.rulespec_compile.validation.cli import main
+        from src.rulespec_compile.validation.comparator import ComparisonResults
 
         mock_validate_full.return_value = ComparisonResults(
             total_households=0,
@@ -1534,15 +1538,15 @@ class TestValidationCLI:
             config=MagicMock(),
         )
 
-        with patch("sys.argv", ["rac-validate", "--mode", "full"]):
+        with patch("sys.argv", ["rulespec-validate", "--mode", "full"]):
             # Should not crash - min_match_rate defaults to 100
             main()
 
-    @patch("src.rac_compile.validation.cli.validate")
+    @patch("src.rulespec_compile.validation.cli.validate")
     def test_sample_mode_with_sample_size(self, mock_validate):
         """Sample size arg is passed through."""
-        from src.rac_compile.validation.cli import main
-        from src.rac_compile.validation.comparator import ComparisonResults
+        from src.rulespec_compile.validation.cli import main
+        from src.rulespec_compile.validation.comparator import ComparisonResults
 
         mock_validate.return_value = ComparisonResults(
             total_households=50,
@@ -1555,7 +1559,7 @@ class TestValidationCLI:
 
         with patch(
             "sys.argv",
-            ["rac-validate", "--mode", "sample", "--sample-size", "50"],
+            ["rulespec-validate", "--mode", "sample", "--sample-size", "50"],
         ):
             main()
             call_kwargs = mock_validate.call_args
@@ -1564,11 +1568,11 @@ class TestValidationCLI:
                 or call_kwargs.kwargs.get("sample_size") == 50
             )
 
-    @patch("src.rac_compile.validation.cli.validate")
+    @patch("src.rulespec_compile.validation.cli.validate")
     def test_sample_mode_with_output_dir(self, mock_validate):
         """Output dir arg is passed through."""
-        from src.rac_compile.validation.cli import main
-        from src.rac_compile.validation.comparator import ComparisonResults
+        from src.rulespec_compile.validation.cli import main
+        from src.rulespec_compile.validation.comparator import ComparisonResults
 
         mock_validate.return_value = ComparisonResults(
             total_households=10,
@@ -1582,7 +1586,7 @@ class TestValidationCLI:
         with patch(
             "sys.argv",
             [
-                "rac-validate",
+                "rulespec-validate",
                 "--mode",
                 "sample",
                 "--output-dir",

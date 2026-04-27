@@ -2,15 +2,15 @@
 CLI for running validation pipeline.
 
 Usage:
-    python -m rac_compile.validation.cli [options]
-    rac-validate [options]  # if installed
+    python -m rulespec_compile.validation.cli [options]
+    rulespec-validate [options]  # if installed
 
 Examples:
     # Full CPS validation (vectorized, fast)
-    rac-validate --mode full
+    rulespec-validate --mode full
 
     # Sample validation from CSV (slower per-household)
-    rac-validate --mode sample --source csv --csv-path data.csv --sample-size 100
+    rulespec-validate --mode sample --source csv --csv-path data.csv --sample-size 100
 """
 
 import argparse
@@ -21,7 +21,9 @@ from .comparator import ComparisonConfig, validate, validate_full
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Validate RAC calculators against PolicyEngine-US on CPS microdata"
+        description=(
+            "Validate RuleSpec calculators against PolicyEngine-US on CPS microdata"
+        )
     )
 
     parser.add_argument(

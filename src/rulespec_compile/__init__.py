@@ -1,7 +1,7 @@
 """
-rac-compile: Compile RAC DSL to standalone JavaScript, Python, and Rust.
+rulespec-compile: Compile RuleSpec to standalone JavaScript, Python, and Rust.
 
-This module generates JS, Python, and Rust code from .rac files for use in
+This module generates JS, Python, and Rust code from .yaml files for use in
 browsers, Node.js, Python applications, and Rust binaries without extra runtime
 dependencies.
 """
@@ -52,15 +52,15 @@ from .parser import (
     ImportSymbolSpec,
     ParameterDef,
     ParserError,
-    RacFile,
     ReExportSpec,
     RuleDecl,
+    RuleSpecFile,
     SourceBlock,
     TemporalEntry,
     VariableBlock,
-    parse_rac,
+    parse_rulespec,
 )
-from .program import RacProgram, load_rac_program
+from .program import RuleSpecProgram, load_rulespec_program
 from .python_generator import Parameter as PythonParameter
 from .python_generator import PythonCodeGenerator
 from .python_generator import Variable as PythonVariable
@@ -102,7 +102,7 @@ __all__ = [
     "RuleResolver",
     "load_rule_bindings_file",
     "merge_rule_bindings",
-    "RacProgram",
+    "RuleSpecProgram",
     "CompiledInput",
     "CompiledModule",
     "CompiledParameter",
@@ -124,11 +124,11 @@ __all__ = [
     "JSVariable",
     "PythonParameter",
     "PythonVariable",
-    "parse_rac",
+    "parse_rulespec",
     "ImportSpec",
     "ImportSymbolSpec",
     "ExportSpec",
-    "RacFile",
+    "RuleSpecFile",
     "ReExportSpec",
     "RuleDecl",
     "SourceBlock",
@@ -136,6 +136,6 @@ __all__ = [
     "ParameterDef",
     "ParserError",
     "TemporalEntry",
-    "load_rac_program",
+    "load_rulespec_program",
     "run_compiler_harness",
 ]

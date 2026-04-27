@@ -4,9 +4,9 @@ source:
   citation: "Example Working Families Act § 102"
   accessed: 2025-01-01
 
-import "./base_amount.rac" as base
+import "./base_amount.yaml" as base
 
-export from "./base_amount.rac" import base_amount
+export from "./base_amount.yaml" import base_amount
 export benefit as benefit_amount
 
 benefit:

@@ -1,11 +1,11 @@
 """
-Command-line interface for rac-compile.
+Command-line interface for rulespec-compile.
 
 Usage:
-    rac-compile compile input.rac -o output.js
-    rac-compile compile input.rac --python -o output.py
-    rac-compile compile input.rac --rust -o output.rs
-    rac-compile eitc -o eitc.js
+    rulespec-compile compile input.yaml -o output.js
+    rulespec-compile compile input.yaml --python -o output.py
+    rulespec-compile compile input.yaml --rust -o output.rs
+    rulespec-compile eitc -o eitc.js
 """
 
 import argparse
@@ -22,7 +22,7 @@ from .harness import (
     run_compiler_harness,
 )
 from .js_generator import generate_eitc_calculator
-from .program import load_rac_program
+from .program import load_rulespec_program
 from .python_generator import generate_eitc_calculator as generate_eitc_calculator_py
 from .rule_bindings import (
     RuleBindingError,
@@ -157,7 +157,7 @@ def _add_program_compile_arguments(command_parser: argparse.ArgumentParser) -> N
     command_parser.add_argument(
         "input",
         type=Path,
-        help="Input .rac file",
+        help="Input .yaml file",
     )
     command_parser.add_argument(
         "-o",
@@ -168,7 +168,7 @@ def _add_program_compile_arguments(command_parser: argparse.ArgumentParser) -> N
     command_parser.add_argument(
         "--effective-date",
         type=_parse_effective_date,
-        help="Resolve temporal RAC definitions as of YYYY-MM-DD",
+        help="Resolve temporal RuleSpec definitions as of YYYY-MM-DD",
     )
     command_parser.add_argument(
         "--binding",
@@ -211,7 +211,9 @@ def _add_program_compile_arguments(command_parser: argparse.ArgumentParser) -> N
         action="append",
         type=Path,
         metavar="DIR",
-        help="Resolve bare imports from this workspace root in addition to rac.toml",
+        help=(
+            "Resolve bare imports from this workspace root in addition to rulespec.toml"
+        ),
     )
     command_parser.add_argument(
         "--package",
@@ -223,8 +225,8 @@ def _add_program_compile_arguments(command_parser: argparse.ArgumentParser) -> N
 
 
 def _load_program_compile_inputs(args) -> tuple[Any, dict[str, Any]]:
-    """Load the RAC program and merged rule bindings for one CLI request."""
-    rac_program = load_rac_program(
+    """Load the RuleSpec program and merged rule bindings for one CLI request."""
+    rulespec_program = load_rulespec_program(
         args.input,
         module_roots=[root.expanduser().resolve() for root in args.module_root or []],
         module_packages=_build_module_packages(args.package),
@@ -238,15 +240,15 @@ def _load_program_compile_inputs(args) -> tuple[Any, dict[str, Any]]:
         _build_rule_bindings(args.binding),
         _build_rule_bindings(args.parameter),
     )
-    return rac_program, rule_bindings
+    return rulespec_program, rule_bindings
 
 
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
-        prog="rac-compile",
+        prog="rulespec-compile",
         description=(
-            "Compile RAC .rac files to standalone JavaScript, Python, or Rust"
+            "Compile RuleSpec .yaml files to standalone JavaScript, Python, or Rust"
         ),
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -254,7 +256,7 @@ def main():
     # Compile command
     compile_parser = subparsers.add_parser(
         "compile",
-        help="Compile a .rac file to JavaScript, Python, or Rust",
+        help="Compile a .yaml file to JavaScript, Python, or Rust",
     )
     _add_program_compile_arguments(compile_parser)
     target_group = compile_parser.add_mutually_exclusive_group()
@@ -270,7 +272,7 @@ def main():
     )
     lower_parser = subparsers.add_parser(
         "lower",
-        help="Lower a .rac file to a backend-neutral JSON bundle",
+        help="Lower a .yaml file to a backend-neutral JSON bundle",
     )
     _add_program_compile_arguments(lower_parser)
 
@@ -297,9 +299,7 @@ def main():
     harness_parser.add_argument(
         "--include-live",
         action="store_true",
-        help=(
-            "Include curated compatibility checks against sibling live-stack RAC files"
-        ),
+        help=("Include curated checks against sibling live-stack RuleSpec files"),
     )
 
     # EITC command (pre-built)
@@ -340,16 +340,16 @@ def main():
             sys.exit(1)
 
         try:
-            rac_program, rule_bindings = _load_program_compile_inputs(args)
+            rulespec_program, rule_bindings = _load_program_compile_inputs(args)
             if args.command == "lower":
-                code = rac_program.to_lowered_program(
+                code = rulespec_program.to_lowered_program(
                     effective_date=args.effective_date,
                     rule_bindings=rule_bindings,
                     outputs=args.select_output,
                 ).to_json()
                 lang = "Lowered JSON"
             elif args.rust:
-                gen = rac_program.to_rust_generator(
+                gen = rulespec_program.to_rust_generator(
                     effective_date=args.effective_date,
                     rule_bindings=rule_bindings,
                     outputs=args.select_output,
@@ -357,7 +357,7 @@ def main():
                 lang = "Rust"
                 code = gen.generate()
             elif args.python:
-                gen = rac_program.to_python_generator(
+                gen = rulespec_program.to_python_generator(
                     effective_date=args.effective_date,
                     rule_bindings=rule_bindings,
                     outputs=args.select_output,
@@ -365,7 +365,7 @@ def main():
                 lang = "Python"
                 code = gen.generate()
             else:
-                gen = rac_program.to_js_generator(
+                gen = rulespec_program.to_js_generator(
                     effective_date=args.effective_date,
                     rule_bindings=rule_bindings,
                     outputs=args.select_output,

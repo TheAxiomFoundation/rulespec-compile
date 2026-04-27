@@ -21,8 +21,8 @@ from .calculators import (
 )
 from .compile_model import CompilationError
 from .parameter_bindings import ParameterBindingError
-from .parser import parse_rac
-from .program import load_rac_program
+from .parser import parse_rulespec
+from .program import load_rulespec_program
 from .rule_bindings import load_rule_bindings_file, merge_rule_bindings
 from .validation import ComparisonConfig, run_policyengine_household
 
@@ -37,9 +37,9 @@ class HarnessCase:
     name: str
     category: str
     description: str
-    rac: str | None = None
+    rulespec: str | None = None
     supporting_files: dict[str, str] = field(default_factory=dict)
-    entrypoint: str = "main.rac"
+    entrypoint: str = "main.yaml"
     repo_entrypoint: str | None = None
     workspace_entrypoint: str | None = None
     repo_binding_files: tuple[str, ...] = ()
@@ -116,7 +116,7 @@ HARNESS_CASES: tuple[HarnessCase, ...] = (
         name="basic_straight_line",
         category="core",
         description="Straight-line formulas compile for all supported targets.",
-        rac="""
+        rulespec="""
 rate:
   source: "Test"
   from 2024-01-01: 0.2
@@ -135,7 +135,7 @@ tax:
         name="comparison_expression",
         category="core",
         description="Scalar comparison expressions execute correctly.",
-        rac="""
+        rulespec="""
 threshold:
   source: "Test"
   from 2024-01-01: 1000
@@ -154,7 +154,7 @@ flag:
         name="implicit_return_block",
         category="core",
         description="Terminal bare expressions are treated as implicit returns.",
-        rac="""
+        rulespec="""
 result:
   entity: Person
   period: Year
@@ -170,7 +170,7 @@ result:
         name="temporal_resolution",
         category="temporal",
         description="Temporal formulas resolve with an effective date.",
-        rac="""
+        rulespec="""
 tax:
   entity: Person
   period: Year
@@ -188,7 +188,7 @@ tax:
         name="source_only_parameter_binding",
         category="bindings",
         description="Source-only parameters compile with explicit bindings.",
-        rac="""
+        rulespec="""
 rate:
   source: "external/rate"
 
@@ -207,7 +207,7 @@ tax:
         name="branching_formula",
         category="control_flow",
         description="If/else formulas compile and execute correctly.",
-        rac="""
+        rulespec="""
 tax:
   entity: Person
   period: Year
@@ -228,7 +228,7 @@ tax:
         description=(
             "Batch execution handles branch-local assignments and skips dead branches."
         ),
-        rac="""
+        rulespec="""
 threshold:
   source: "Test"
   values:
@@ -258,7 +258,7 @@ tax:
         name="selected_output_pruning",
         category="subgraph",
         description="Selected outputs prune to the reachable variable graph.",
-        rac="""
+        rulespec="""
 rate:
   source: "Test"
   from 2024-01-01: 0.1
@@ -292,8 +292,8 @@ bonus:
         name="cross_file_import_pruning",
         category="graph",
         description="Imported helpers compile through the reachable cross-file graph.",
-        rac="""
-import "./shared.rac"
+        rulespec="""
+import "./shared.yaml"
 
 tax:
   entity: Person
@@ -303,7 +303,7 @@ tax:
     return taxable_income * rate
 """,
         supporting_files={
-            "shared.rac": """
+            "shared.yaml": """
 rate:
   source: "shared-rate"
   from 2024-01-01: 0.1
@@ -332,9 +332,9 @@ bonus:
         name="aliased_import_namespacing",
         category="graph",
         description="Import aliases allow duplicate symbol names across modules.",
-        rac="""
-import "./left.rac" as left
-import "./right.rac" as right
+        rulespec="""
+import "./left.yaml" as left
+import "./right.yaml" as right
 
 tax:
   entity: Person
@@ -344,12 +344,12 @@ tax:
     return wages * left.rate + wages * right.rate
 """,
         supporting_files={
-            "left.rac": """
+            "left.yaml": """
 rate:
   source: "left-rate"
   from 2024-01-01: 0.1
 """,
-            "right.rac": """
+            "right.yaml": """
 rate:
   source: "right-rate"
   from 2024-01-01: 0.2
@@ -362,8 +362,8 @@ rate:
         name="selective_import_exports",
         category="graph",
         description="Selective imports respect explicit module exports.",
-        rac="""
-from "./shared.rac" import rate_public as rate, taxable_income
+        rulespec="""
+from "./shared.yaml" import rate_public as rate, taxable_income
 
 tax:
   entity: Person
@@ -373,7 +373,7 @@ tax:
     return taxable_income * rate
 """,
         supporting_files={
-            "shared.rac": """
+            "shared.yaml": """
 export rate_public, taxable_income
 
 rate_public:
@@ -399,8 +399,8 @@ taxable_income:
         name="export_alias_public_output",
         category="graph",
         description="Export aliases define public import names and result keys.",
-        rac="""
-from "./shared.rac" import rate
+        rulespec="""
+from "./shared.yaml" import rate
 export tax as benefit_amount
 
 tax:
@@ -411,7 +411,7 @@ tax:
     return wages * rate
 """,
         supporting_files={
-            "shared.rac": """
+            "shared.yaml": """
 export private_rate as rate
 
 private_rate:
@@ -426,11 +426,11 @@ private_rate:
         name="module_re_export_surface",
         category="graph",
         description="Modules can re-export imported symbols into a new public surface.",
-        rac="""
-export from "./upstream.rac" import upstream_benefit as benefit_amount
+        rulespec="""
+export from "./upstream.yaml" import upstream_benefit as benefit_amount
 """,
         supporting_files={
-            "upstream.rac": """
+            "upstream.yaml": """
 export tax as upstream_benefit
 
 tax:
@@ -447,9 +447,9 @@ tax:
     HarnessCase(
         name="module_root_manifest_import",
         category="graph",
-        description="Bare imports resolve through rac.toml module roots.",
-        rac="""
-from "tax/shared.rac" import rate
+        description="Bare imports resolve through rulespec.toml module roots.",
+        rulespec="""
+from "tax/shared.yaml" import rate
 
 tax:
   entity: Person
@@ -459,11 +459,11 @@ tax:
     return wages * rate
 """,
         supporting_files={
-            "rac.toml": """
+            "rulespec.toml": """
 [module_resolution]
 roots = ["./lib"]
 """,
-            "lib/tax/shared.rac": """
+            "lib/tax/shared.yaml": """
 export private_rate as rate
 
 private_rate:
@@ -478,8 +478,8 @@ private_rate:
         name="package_alias_manifest_import",
         category="graph",
         description="Workspace package aliases resolve stable bare import prefixes.",
-        rac="""
-from "tax/shared.rac" import rate
+        rulespec="""
+from "tax/shared.yaml" import rate
 
 tax:
   entity: Person
@@ -489,11 +489,11 @@ tax:
     return wages * rate
 """,
         supporting_files={
-            "rac.toml": """
+            "rulespec.toml": """
 [module_resolution.packages]
 tax = "./packages/tax"
 """,
-            "packages/tax/shared.rac": """
+            "packages/tax/shared.yaml": """
 export private_rate as rate
 
 private_rate:
@@ -508,7 +508,7 @@ private_rate:
         name="unsupported_loop_fails",
         category="unsupported",
         description="Unsupported loops fail loudly instead of compiling.",
-        rac="""
+        rulespec="""
 tax:
   entity: Person
   period: Year
@@ -522,8 +522,8 @@ tax:
     HarnessCase(
         name="oracle_eitc_example",
         category="oracle",
-        description="Compiled eitc.rac matches the Python reference implementation.",
-        repo_entrypoint="examples/eitc.rac",
+        description="Compiled eitc.yaml matches the Python reference implementation.",
+        repo_entrypoint="examples/eitc.yaml",
         inputs={
             "earned_income": 15000,
             "agi": 15000,
@@ -536,8 +536,8 @@ tax:
     HarnessCase(
         name="oracle_ctc_example",
         category="oracle",
-        description="Compiled ctc.rac matches the Python reference implementation.",
-        repo_entrypoint="examples/ctc.rac",
+        description="Compiled ctc.yaml matches the Python reference implementation.",
+        repo_entrypoint="examples/ctc.yaml",
         inputs={
             "n_qualifying_children": 2,
             "agi": 100000,
@@ -550,8 +550,8 @@ tax:
     HarnessCase(
         name="oracle_snap_example",
         category="oracle",
-        description="Compiled snap.rac matches the Python reference implementation.",
-        repo_entrypoint="examples/snap.rac",
+        description="Compiled snap.yaml matches the Python reference implementation.",
+        repo_entrypoint="examples/snap.yaml",
         inputs={"household_size": 4, "gross_income": 2000},
         outputs=["snap_benefit"],
         oracle="snap_reference",
@@ -560,10 +560,10 @@ tax:
         name="policyengine_snap_example",
         category="policyengine",
         description=(
-            "Compiled snap.rac stays within the PolicyEngine SNAP tolerance "
+            "Compiled snap.yaml stays within the PolicyEngine SNAP tolerance "
             "on a fixed household."
         ),
-        repo_entrypoint="examples/snap.rac",
+        repo_entrypoint="examples/snap.yaml",
         targets=("python",),
         inputs={"household_size": 4, "gross_income": 2000, "state_code": "CA"},
         outputs=["snap_benefit"],
@@ -572,14 +572,14 @@ tax:
         external=True,
     ),
     HarnessCase(
-        name="live_rac_us_override_yaml_binding_support",
+        name="live_rulespec_us_override_yaml_binding_support",
         category="live_stack",
         description=(
-            "Real rac-us override YAML artifacts should bind source-backed rules "
+            "Real rules-us override YAML artifacts should bind source-backed rules "
             "through citation-path identities."
         ),
-        workspace_entrypoint="rac-compile/examples/statute/26/32/b/2/A/base_amounts.rac",
-        workspace_binding_files=("rac-us/irs/rev-proc-2023-34/eitc-2024.yaml",),
+        workspace_entrypoint="rulespec-compile/examples/statute/26/32/b/2/A/base_amounts.yaml",
+        workspace_binding_files=("rules-us/irs/rev-proc-2023-34/eitc-2024.yaml",),
         effective_date="2024-06-01",
         outputs=["eitc_pair_total"],
         inputs={"number_of_qualifying_children": 1},
@@ -591,13 +591,13 @@ tax:
         live=True,
     ),
     HarnessCase(
-        name="live_rac_us_input_variable_support",
+        name="live_rulespec_us_input_variable_support",
         category="live_stack",
         description=(
-            "Real rac-us files should treat defaulted no-formula variables as public "
-            "inputs instead of unsupported computations."
+            "Real rules-us files should treat defaulted no-formula variables "
+            "as public inputs instead of unsupported computations."
         ),
-        workspace_entrypoint="rac-us/statute/26/24/c/2.rac",
+        workspace_entrypoint="rules-us/statute/26/24/c/2.yaml",
         outputs=["ctc_meets_citizenship_requirement"],
         expected_input_names=["is_us_citizen_national_or_resident"],
         expected_output_module_identities={
@@ -607,26 +607,26 @@ tax:
         live=True,
     ),
     HarnessCase(
-        name="live_rac_us_citation_identity",
+        name="live_rulespec_us_citation_identity",
         category="live_stack",
         description=(
-            "Real rac-us files should preserve statute citation paths as module "
+            "Real rules-us files should preserve statute citation paths as module "
             "identity in the lowered bundle."
         ),
-        workspace_entrypoint="rac-us/statute/26/21/a/2/A.rac",
+        workspace_entrypoint="rules-us/statute/26/21/a/2/A.yaml",
         outputs=["first_reduction"],
         expected_output_module_identities={"first_reduction": "statute/26/21/a/2/A"},
         targets=(),
         live=True,
     ),
     HarnessCase(
-        name="live_rac_us_import_graph_resolution",
+        name="live_rulespec_us_import_graph_resolution",
         category="live_stack",
         description=(
-            "Real rac-us imported computed rules should resolve through the file graph "
-            "instead of surfacing as free lowered inputs."
+            "Real rules-us imported computed rules should resolve through "
+            "the file graph instead of surfacing as free lowered inputs."
         ),
-        workspace_entrypoint="rac-us/statute/26/32/32.rac",
+        workspace_entrypoint="rules-us/statute/26/32/32.yaml",
         outputs=["earned_income_credit"],
         forbidden_input_names=[
             "eitc_amount",
@@ -638,13 +638,13 @@ tax:
         live=True,
     ),
     HarnessCase(
-        name="live_rac_us_scalar_computed_rule_support",
+        name="live_rulespec_us_scalar_computed_rule_support",
         category="live_stack",
         description=(
-            "Real rac-us scalar computed rules without an entity should still lower "
-            "as computed outputs."
+            "Real rules-us scalar computed rules without an entity should "
+            "still lower as computed outputs."
         ),
-        workspace_entrypoint="rac-us/statute/7/2014/d.rac",
+        workspace_entrypoint="rules-us/statute/7/2014/d.yaml",
         outputs=["snap_self_employment_cost_exclusion"],
         expected_input_names=[
             "snap_nonfarm_self_employment_production_costs",
@@ -658,17 +658,17 @@ tax:
         live=True,
     ),
     HarnessCase(
-        name="live_autorac_inline_conditional_support",
+        name="live_rulespec_inline_conditional_support",
         category="live_stack",
         description=(
-            "Real AutoRAC source files should compile inline `if cond: a else: b` "
+            "Real RuleSpec source files should compile inline `if cond: a else: b` "
             "expressions without requiring manual rewrites."
         ),
         workspace_entrypoint=(
-            "autorac/artifacts/eval-suites/"
+            "rulespec/artifacts/eval-suites/"
             "us-snap-child-support-deduction-refresh1-ready-20260412/"
             "01-snap_child_support_deduction/openai-gpt-5.4/source/"
-            "snap_child_support_deduction.rac"
+            "snap_child_support_deduction.yaml"
         ),
         outputs=["snap_child_support_deduction"],
         inputs={
@@ -688,18 +688,18 @@ tax:
         live=True,
     ),
     HarnessCase(
-        name="live_autorac_source_import_resolution",
+        name="live_rulespec_source_import_resolution",
         category="live_stack",
         description=(
-            "Real AutoRAC source files should resolve citation imports through "
+            "Real RuleSpec source files should resolve citation imports through "
             "their adjacent artifact context instead of surfacing imported helpers "
             "as free inputs."
         ),
         workspace_entrypoint=(
-            "autorac/artifacts/eval-suites/"
+            "rulespec/artifacts/eval-suites/"
             "us-snap-net-income-pre-shelter-refresh2-revalidated-ready-20260412/"
             "01-snap_net_income_pre_shelter/openai-gpt-5.4/source/"
-            "SNAP-pre-shelter-net-income-under-7-USC-2014-e-6-A.rac"
+            "SNAP-pre-shelter-net-income-under-7-USC-2014-e-6-A.yaml"
         ),
         outputs=["snap_net_income_pre_shelter"],
         forbidden_input_names=[
@@ -715,13 +715,13 @@ tax:
         live=True,
     ),
     HarnessCase(
-        name="live_rac_us_co_regulation_table_support",
+        name="live_rulespec_us_co_regulation_table_support",
         category="live_stack",
         description=(
             "Real state regulation files should compile multiline inline-condition "
             "tables without flattening them by hand."
         ),
-        workspace_entrypoint="rac-us-co/regulation/9-CCR-2503-6/3.606.1/F.rac",
+        workspace_entrypoint="rules-us-co/regulation/9-CCR-2503-6/3.606.1/F.yaml",
         outputs=["need_standard_for_assistance_unit"],
         inputs={
             "number_of_children_in_assistance_unit": 2,
@@ -738,13 +738,13 @@ tax:
         live=True,
     ),
     HarnessCase(
-        name="live_rac_us_co_regulation_import_graph_resolution",
+        name="live_rulespec_us_co_regulation_import_graph_resolution",
         category="live_stack",
         description=(
             "State regulation imports should surface imported free inputs through "
             "qualified rule-identity names instead of merged internal names."
         ),
-        workspace_entrypoint="rac-us-co/regulation/9-CCR-2503-6/3.606.1/H.rac",
+        workspace_entrypoint="rules-us-co/regulation/9-CCR-2503-6/3.606.1/H.yaml",
         outputs=["meets_gross_income_need_standard_test"],
         inputs={
             (
@@ -771,13 +771,13 @@ tax:
         live=True,
     ),
     HarnessCase(
-        name="live_rac_us_co_statute_import_graph_resolution",
+        name="live_rulespec_us_co_statute_import_graph_resolution",
         category="live_stack",
         description=(
             "State statute imports should surface upstream rule inputs through "
             "qualified rule-identity names."
         ),
-        workspace_entrypoint="rac-us-co/statute/crs/26-2-711/1/a/I.rac",
+        workspace_entrypoint="rules-us-co/statute/crs/26-2-711/1/a/I.yaml",
         outputs=[
             "participant_is_subject_to_sanction_for_noncompliance_with_individual_responsibility_contract"
         ],
@@ -1119,32 +1119,32 @@ def _compile_target(case: HarnessCase, program, target: str) -> str:
 def _load_case_program(case: HarnessCase):
     """Load a harness case as either one in-memory file or a file graph."""
     if case.repo_entrypoint is not None:
-        return load_rac_program(_REPO_ROOT / case.repo_entrypoint)
+        return load_rulespec_program(_REPO_ROOT / case.repo_entrypoint)
     if case.workspace_entrypoint is not None:
         path = _WORKSPACE_ROOT / case.workspace_entrypoint
         if not path.exists():
             raise ImportError(f"Workspace harness case '{case.name}' requires {path}.")
-        return load_rac_program(path)
+        return load_rulespec_program(path)
 
     if not case.supporting_files:
-        if case.rac is None:
+        if case.rulespec is None:
             raise CompilationError(
-                f"Harness case '{case.name}' does not define a RAC entrypoint."
+                f"Harness case '{case.name}' does not define a RuleSpec entrypoint."
             )
-        return parse_rac(case.rac)
+        return parse_rulespec(case.rulespec)
 
-    with tempfile.TemporaryDirectory(prefix="rac_compile_harness_") as tmp_dir:
+    with tempfile.TemporaryDirectory(prefix="rulespec_compile_harness_") as tmp_dir:
         root = Path(tmp_dir)
-        if case.rac is None:
+        if case.rulespec is None:
             raise CompilationError(
-                f"Harness case '{case.name}' does not define a RAC entrypoint."
+                f"Harness case '{case.name}' does not define a RuleSpec entrypoint."
             )
-        (root / case.entrypoint).write_text(case.rac.strip() + "\n")
+        (root / case.entrypoint).write_text(case.rulespec.strip() + "\n")
         for relative_path, content in case.supporting_files.items():
             target = root / relative_path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content.strip() + "\n")
-        return load_rac_program(root / case.entrypoint)
+        return load_rulespec_program(root / case.entrypoint)
 
 
 def _load_case_rule_bindings(case: HarnessCase) -> Any:
@@ -1465,7 +1465,7 @@ def _check_rust_runtime(
     if rustc is None:
         return None
 
-    with tempfile.TemporaryDirectory(prefix="rac_compile_rust_") as tmp_dir:
+    with tempfile.TemporaryDirectory(prefix="rulespec_compile_rust_") as tmp_dir:
         root = Path(tmp_dir)
         source = root / "main.rs"
         binary = root / "calculator"
@@ -1611,11 +1611,11 @@ def _format_rust_public_input_binding(
     literal = _render_rust_input_literal(value, input_value_kinds.get(name, "number"))
     kind = input_value_kinds.get(name, "number")
     if kind == "boolean":
-        rendered = f"RacValue::Bool({literal})"
+        rendered = f"RuleSpecValue::Bool({literal})"
     elif kind == "integer":
-        rendered = f"RacValue::Integer({literal})"
+        rendered = f"RuleSpecValue::Integer({literal})"
     else:
-        rendered = f"RacValue::Number({literal})"
+        rendered = f"RuleSpecValue::Number({literal})"
     return f"    public_inputs.insert({json.dumps(name)}.to_string(), {rendered});"
 
 

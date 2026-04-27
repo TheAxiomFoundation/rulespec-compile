@@ -5,7 +5,7 @@ from datetime import date
 
 import pytest
 
-from src.rac_compile.rule_bindings import (
+from src.rulespec_compile.rule_bindings import (
     RuleBinding,
     RuleBindingError,
     RuleBindingTarget,
@@ -108,8 +108,8 @@ class TestRuleBindings:
         with pytest.raises(RuleBindingError, match="has only effective-dated bindings"):
             resolver.resolve(module_identity="shared", symbol="rate")
 
-    def test_load_rule_binding_file_supports_rac_us_override_yaml(self, tmp_path):
-        """RAC-side override YAML artifacts load into dated identity-aware bindings."""
+    def test_load_rule_binding_file_supports_rulespec_us_override_yaml(self, tmp_path):
+        """RuleSpec override YAML loads into dated identity-aware bindings."""
         path = tmp_path / "eitc-2024.yaml"
         path.write_text(
             """
@@ -144,9 +144,9 @@ earned_income_amount:
             reference="statute/26/32/j/1; https://www.irs.gov/example",
         )
 
-    def test_load_rule_binding_file_supports_rac_override_artifact(self, tmp_path):
-        """Override-style .rac artifacts strip prose blocks before loading."""
-        path = tmp_path / "artifact.rac"
+    def test_load_rule_binding_file_supports_rulespec_override_artifact(self, tmp_path):
+        """Override-style .yaml artifacts strip prose blocks before loading."""
+        path = tmp_path / "artifact.yaml"
         path.write_text(
             '''
 """

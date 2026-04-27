@@ -1,32 +1,32 @@
-# Authoring `.rac`
+# Authoring `.yaml`
 
-This guide is for writing RAC source files that compile cleanly through the
-current `rac-compile` pipeline.
+This guide is for writing RuleSpec source files that compile cleanly through the
+current `rulespec-compile` pipeline.
 
 ## File shape
 
-A `.rac` file is made of:
+A `.yaml` file is made of:
 
 - an optional top-level `source:` metadata block
 - top-level rule definitions
 - optional imports / exports
 
-For canonical RAC trees, use citation paths like `statute/26/32/c/2/A.rac` or
-`regulation/...`. Avoid generic entrypoint names like `main.rac`.
+For canonical RuleSpec trees, use citation paths like `statute/26/32/c/2/A.yaml` or
+`regulation/...`. Avoid generic entrypoint names like `main.yaml`.
 
 The compiler uses canonical `statute/...`, `regulation/...`, or
 `legislation/...` paths as module/rule identity in merged graphs, lowered
 bundles, and generated citation metadata. For ad hoc files outside those roots,
 it falls back to the file leaf name.
 
-For real policy work, author RAC as checked-in `.rac` files with rule citations
-and source metadata in the file itself. Do not treat RAC as an ad hoc embedded
+For real policy work, author RuleSpec as checked-in `.yaml` files with rule citations
+and source metadata in the file itself. Do not treat RuleSpec as an ad hoc embedded
 string format.
 
 Shipped file example:
 
-```rac
-# /Users/maxghenis/TheAxiomFoundation/rac-compile/examples/simple_tax.rac
+```rulespec
+# /Users/maxghenis/TheAxiomFoundation/rulespec-compile/examples/simple_tax.yaml
 
 source:
   citation: "Example Tax Code"
@@ -46,19 +46,19 @@ tax:
 
 The more representative policy examples are:
 
-- `/Users/maxghenis/TheAxiomFoundation/rac-compile/examples/eitc.rac`
-- `/Users/maxghenis/TheAxiomFoundation/rac-compile/examples/ctc.rac`
-- `/Users/maxghenis/TheAxiomFoundation/rac-compile/examples/snap.rac`
-- `/Users/maxghenis/TheAxiomFoundation/rac-compile/examples/working_families/benefit_amount.rac`
+- `/Users/maxghenis/TheAxiomFoundation/rulespec-compile/examples/eitc.yaml`
+- `/Users/maxghenis/TheAxiomFoundation/rulespec-compile/examples/ctc.yaml`
+- `/Users/maxghenis/TheAxiomFoundation/rulespec-compile/examples/snap.yaml`
+- `/Users/maxghenis/TheAxiomFoundation/rulespec-compile/examples/working_families/benefit_amount.yaml`
 
 ## External Scalar And Table Rules
 
-RAC source files use one top-level rule shape. Some of those rules behave as
+RuleSpec source files use one top-level rule shape. Some of those rules behave as
 external scalar values or lookup tables rather than computed formulas.
 
 Inline scalar external rule:
 
-```rac
+```rulespec
 rate:
   source: "26 USC 1"
   values:
@@ -67,7 +67,7 @@ rate:
 
 Indexed external rule table:
 
-```rac
+```rulespec
 credit_pct:
   source: "26 USC 32(b)(1)"
   values:
@@ -79,7 +79,7 @@ credit_pct:
 
 Source-only external rule:
 
-```rac
+```rulespec
 rate:
   source: "external/rate"
 ```
@@ -102,8 +102,8 @@ values or statute-level scalar concepts.
 
 Real policy-style example:
 
-```rac
-# excerpted from /Users/maxghenis/TheAxiomFoundation/rac-compile/examples/eitc.rac
+```rulespec
+# excerpted from /Users/maxghenis/TheAxiomFoundation/rulespec-compile/examples/eitc.yaml
 
 eitc:
   entity: TaxUnit
@@ -118,7 +118,7 @@ eitc:
 
 Scalar computed example:
 
-```rac
+```rulespec
 snap_self_employment_cost_exclusion:
   label: "SNAP self-employment cost exclusion"
   description: "Reduction for production costs"
@@ -144,7 +144,7 @@ The current compiler supports:
 
 Example with statement-block branching:
 
-```rac
+```rulespec
 tax:
   entity: Person
   period: Year
@@ -167,54 +167,54 @@ The source connection is part of the model, not optional decoration.
 - external-rule `source:` fields tie values back to statutes, regulations, or guidance
 - variable labels and citations define the public rule surface
 
-If you are authoring real policy, prefer real `.rac` modules on disk over inline
+If you are authoring real policy, prefer real `.yaml` modules on disk over inline
 snippets in host-language strings.
 
 ## Imports and exports
 
 Local import:
 
-```rac
-import "./shared.rac"
+```rulespec
+import "./shared.yaml"
 ```
 
 Aliased import:
 
-```rac
-import "./shared.rac" as shared
+```rulespec
+import "./shared.yaml" as shared
 ```
 
 Selective import:
 
-```rac
-from "./shared.rac" import rate_public as rate, taxable_income
+```rulespec
+from "./shared.yaml" import rate_public as rate, taxable_income
 ```
 
 Export public names:
 
-```rac
+```rulespec
 export tax, taxable_income
 export taxable_income as base_income
 ```
 
 Re-export from another module:
 
-```rac
-export from "./shared.rac" import tax, rate as public_rate
+```rulespec
+export from "./shared.yaml" import tax, rate as public_rate
 ```
 
 ## Bare imports
 
 You can also import through configured module roots or package aliases:
 
-```rac
-from "tax/shared.rac" import rate
+```rulespec
+from "tax/shared.yaml" import rate
 ```
 
 Those are resolved through:
 
-- `rac.toml` `[module_resolution].roots`
-- `rac.toml` `[module_resolution.packages]`
+- `rulespec.toml` `[module_resolution].roots`
+- `rulespec.toml` `[module_resolution.packages]`
 - CLI `--module-root`
 - CLI `--package`
 
@@ -222,7 +222,7 @@ Those are resolved through:
 
 Both external rules and computed rules can have multiple dated entries:
 
-```rac
+```rulespec
 tax:
   entity: Person
   period: Year

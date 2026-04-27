@@ -1,4 +1,4 @@
-"""Tests for Rust code generation from lowered RAC IR."""
+"""Tests for Rust code generation from lowered RuleSpec IR."""
 
 import shutil
 import subprocess
@@ -7,10 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from src.rac_compile.compile_model import LoweredInput, LoweredProgram
-from src.rac_compile.expression_ir import BinaryExpr, LiteralExpr, NameExpr, ReturnStmt
-from src.rac_compile.parser import parse_rac
-from src.rac_compile.rust_generator import RustCodeGenerator
+from src.rulespec_compile.compile_model import LoweredInput, LoweredProgram
+from src.rulespec_compile.expression_ir import (
+    BinaryExpr,
+    LiteralExpr,
+    NameExpr,
+    ReturnStmt,
+)
+from src.rulespec_compile.parser import parse_rulespec
+from src.rulespec_compile.rust_generator import RustCodeGenerator
 
 
 def _run_rust(
@@ -35,7 +40,7 @@ def _run_rust(
         (compiled_input.public_name or compiled_input.name) != compiled_input.name
         for compiled_input in lowered_inputs
     )
-    with tempfile.TemporaryDirectory(prefix="rac_compile_rust_test_") as tmp_dir:
+    with tempfile.TemporaryDirectory(prefix="rulespec_compile_rust_test_") as tmp_dir:
         root = Path(tmp_dir)
         source = root / "main.rs"
         binary = root / "calculator"
@@ -125,11 +130,11 @@ def _format_rust_public_input_binding(
     kind = input_value_kinds.get(name, "number")
     literal = _render_rust_literal(value, kind)
     if kind == "boolean":
-        rendered = f"RacValue::Bool({literal})"
+        rendered = f"RuleSpecValue::Bool({literal})"
     elif kind == "integer":
-        rendered = f"RacValue::Integer({literal})"
+        rendered = f"RuleSpecValue::Integer({literal})"
     else:
-        rendered = f"RacValue::Number({literal})"
+        rendered = f"RuleSpecValue::Number({literal})"
     return f'    public_inputs.insert("{name}".to_string(), {rendered});'
 
 
@@ -156,7 +161,7 @@ class TestRustCodeGenerator:
 
     def test_lowered_program_round_trips_and_generates_rust(self):
         """Lowered bundles can round-trip into executable Rust output."""
-        rac = """
+        rulespec = """
 rate:
   source: "Test"
   from 2024-01-01: 0.2
@@ -169,7 +174,7 @@ tax:
     taxable_income = wages - deduction
     return taxable_income * rate
 """
-        lowered = parse_rac(rac).to_lowered_program(outputs=["tax"])
+        lowered = parse_rulespec(rulespec).to_lowered_program(outputs=["tax"])
         round_trip = LoweredProgram.from_json(lowered.to_json())
         code = round_trip.to_rust_generator().generate()
 
@@ -184,7 +189,7 @@ tax:
 
     def test_branching_formula_executes_in_rust(self):
         """Rust generation handles branch-assigned locals used later."""
-        rac = """
+        rulespec = """
 tax:
   entity: Person
   period: Year
@@ -196,7 +201,7 @@ tax:
       rate = 0.2
     return wages * rate
 """
-        lowered = parse_rac(rac).to_lowered_program()
+        lowered = parse_rulespec(rulespec).to_lowered_program()
         code = lowered.to_rust_generator().generate()
 
         stdout = _run_rust(code, {"wages": 100, "is_joint": True}, lowered.inputs)
@@ -206,7 +211,7 @@ tax:
 
     def test_boolean_local_slots_are_typed_in_rust(self):
         """Boolean locals emit typed Option<bool> slots in Rust."""
-        rac = """
+        rulespec = """
 flag:
   entity: Person
   period: Year
@@ -215,7 +220,7 @@ flag:
     eligible = wages <= 1000
     return eligible
 """
-        lowered = parse_rac(rac).to_lowered_program()
+        lowered = parse_rulespec(rulespec).to_lowered_program()
         code = lowered.to_rust_generator().generate()
 
         stdout = _run_rust(code, {"wages": 500}, lowered.inputs)
@@ -225,7 +230,7 @@ flag:
 
     def test_integer_outputs_remain_integer_at_rust_boundary(self):
         """Typed lowered outputs emit Integer values instead of Number."""
-        rac = """
+        rulespec = """
 count:
   entity: Person
   period: Year
@@ -233,12 +238,12 @@ count:
   from 2024-01-01:
     return n_children + 1
 """
-        lowered = parse_rac(rac).to_lowered_program()
+        lowered = parse_rulespec(rulespec).to_lowered_program()
         code = lowered.to_rust_generator().generate()
 
         stdout = _run_rust(code, {"n_children": 2}, lowered.inputs)
 
-        assert "RacValue::Integer" in code
+        assert "RuleSpecValue::Integer" in code
         assert "pub n_children: i64" in code
         assert "count=Integer(3)" in stdout
 
@@ -306,7 +311,7 @@ count:
 
     def test_integer_scalar_parameter_reference_stays_exact_in_rust(self):
         """Direct integer parameter references emit exact i64 helpers and outputs."""
-        rac = """
+        rulespec = """
 bonus:
   source: "Test"
   from 2024-01-01: 2
@@ -318,7 +323,7 @@ count:
   from 2024-01-01:
     return n_children + bonus
 """
-        lowered = parse_rac(rac).to_lowered_program()
+        lowered = parse_rulespec(rulespec).to_lowered_program()
         code = lowered.to_rust_generator().generate()
 
         stdout = _run_rust(code, {"n_children": 2}, lowered.inputs)
@@ -328,7 +333,7 @@ count:
 
     def test_integer_indexed_parameter_lookup_stays_exact_in_rust(self):
         """Indexed integer parameter lookups preserve exact integer kinds in Rust."""
-        rac = """
+        rulespec = """
 allowances:
   source: "external/allowances"
 
@@ -339,7 +344,7 @@ count:
   from 2024-01-01:
     return allowances[n_children]
 """
-        lowered = parse_rac(rac).to_lowered_program(
+        lowered = parse_rulespec(rulespec).to_lowered_program(
             parameter_overrides={"allowances": [1, 2]}
         )
         code = lowered.to_rust_generator().generate()
@@ -351,7 +356,7 @@ count:
 
     def test_rust_generation_rejects_string_formula_literals(self):
         """Rust generation fails loudly on unsupported string formulas."""
-        rac = """
+        rulespec = """
 name:
   entity: Person
   period: Year
@@ -360,7 +365,7 @@ name:
     return "hello"
 """
         with pytest.raises(ValueError) as exc_info:
-            parse_rac(rac).to_rust_generator().generate()
+            parse_rulespec(rulespec).to_rust_generator().generate()
         message = str(exc_info.value)
         assert "Rust backend does not support string formula literals" in message
         assert "Python or JavaScript backend" in message

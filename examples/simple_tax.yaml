@@ -1,5 +1,5 @@
 # Simple Tax Calculator
-# A minimal example of .rac syntax
+# A minimal example of .yaml syntax
 
 source:
   citation: "Example Tax Code"

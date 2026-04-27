@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from src.rac_compile.parameter_bindings import (
+from src.rulespec_compile.parameter_bindings import (
     ParameterBinding,
     ParameterBindingError,
     ParameterBundle,

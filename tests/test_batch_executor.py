@@ -4,15 +4,15 @@ from datetime import date
 
 import pandas as pd
 
-from src.rac_compile.batch_executor import execute_lowered_program_batch
-from src.rac_compile.parser import parse_rac
+from src.rulespec_compile.batch_executor import execute_lowered_program_batch
+from src.rulespec_compile.parser import parse_rulespec
 
 
 class TestBatchExecutor:
     """Test batch execution over lowered programs."""
 
     def test_executes_indexed_parameters_and_conditionals(self):
-        rac = parse_rac(
+        rulespec = parse_rulespec(
             """
 multiplier:
   source: "Test"
@@ -30,7 +30,7 @@ result:
     return is_joint ? wages * factor : 0
 """
         )
-        program = rac.to_lowered_program(effective_date=date(2024, 1, 1))
+        program = rulespec.to_lowered_program(effective_date=date(2024, 1, 1))
 
         result = execute_lowered_program_batch(
             program,
@@ -46,7 +46,7 @@ result:
         assert result.to_dict(orient="list") == {"result": [0, 200, 300]}
 
     def test_executes_if_statement_blocks_with_branch_locals(self):
-        rac = parse_rac(
+        rulespec = parse_rulespec(
             """
 result:
   entity: Person
@@ -60,7 +60,7 @@ result:
     return wages * rate
 """
         )
-        program = rac.to_lowered_program(effective_date=date(2024, 1, 1))
+        program = rulespec.to_lowered_program(effective_date=date(2024, 1, 1))
 
         result = execute_lowered_program_batch(
             program,
@@ -70,7 +70,7 @@ result:
         assert result.to_dict(orient="list") == {"result": [10, 20]}
 
     def test_skips_inactive_if_branch_evaluation(self):
-        rac = parse_rac(
+        rulespec = parse_rulespec(
             """
 threshold:
   source: "Test"
@@ -88,7 +88,7 @@ result:
       return threshold[n_children]
 """
         )
-        program = rac.to_lowered_program(effective_date=date(2024, 1, 1))
+        program = rulespec.to_lowered_program(effective_date=date(2024, 1, 1))
 
         result = execute_lowered_program_batch(
             program,
@@ -104,7 +104,7 @@ result:
         assert result.to_dict(orient="list") == {"result": [100, 200]}
 
     def test_short_circuits_boolean_and_ternary_branches(self):
-        rac = parse_rac(
+        rulespec = parse_rulespec(
             """
 threshold:
   source: "Test"
@@ -126,7 +126,7 @@ money_result:
     return is_joint ? threshold[n_children] : wages
 """
         )
-        program = rac.to_lowered_program(effective_date=date(2024, 1, 1))
+        program = rulespec.to_lowered_program(effective_date=date(2024, 1, 1))
 
         result = execute_lowered_program_batch(
             program,

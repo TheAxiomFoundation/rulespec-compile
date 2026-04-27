@@ -8,7 +8,7 @@ from pathlib import Path
 def run_cli(*args):
     """Run CLI and return output."""
     result = subprocess.run(
-        [sys.executable, "-m", "rac_compile.cli", *args],
+        [sys.executable, "-m", "rulespec_compile.cli", *args],
         capture_output=True,
         text=True,
         env={"PYTHONPATH": "src"},
@@ -24,7 +24,7 @@ class TestCLI:
         """--help shows usage."""
         result = run_cli("--help")
         assert result.returncode == 0
-        assert "rac-compile" in result.stdout
+        assert "rulespec-compile" in result.stdout
         assert "eitc" in result.stdout
 
     def test_version(self):

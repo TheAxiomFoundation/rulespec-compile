@@ -1,21 +1,21 @@
-# rac-compile
+# rulespec-compile
 
-Compile RAC `.rac` files to standalone JavaScript, Python, and Rust calculators.
+Compile RuleSpec `.yaml` files to standalone JavaScript, Python, and Rust calculators.
 
 ## Overview
 
-`rac-compile` generates JS, Python, and Rust code from RAC policy encodings. JavaScript output runs entirely in the browser with no server required. Python output can be imported and used in any Python application. Rust output is generated from the same lowered bundle for the current validated numeric/boolean generic subset. Every calculation includes a citation chain tracing values back to authoritative law.
+`rulespec-compile` generates JS, Python, and Rust code from RuleSpec policy encodings. JavaScript output runs entirely in the browser with no server required. Python output can be imported and used in any Python application. Rust output is generated from the same lowered bundle for the current validated numeric/boolean generic subset. Every calculation includes a citation chain tracing values back to authoritative law.
 
 ## Installation
 
 ```bash
-pip install rac-compile
+pip install rulespec-compile
 ```
 
 ## Guides
 
 - `docs/compiler-architecture.md`: one-page architecture map, stability guide, and decision seams
-- `docs/authoring-rac.md`: how to write `.rac` files, external value rules, computed rules, imports, exports, and temporal definitions
+- `docs/authoring-rulespec.md`: how to write `.yaml` files, external value rules, computed rules, imports, exports, and temporal definitions
 - `docs/compile-and-lower.md`: CLI and Python API workflows for compile, lower, output selection, and rule binding
 - `docs/validation-and-oracles.md`: harness, validation modes, execution modes, and current oracle lanes
 
@@ -25,90 +25,90 @@ pip install rac-compile
 
 ```bash
 # Generate JavaScript EITC calculator
-rac-compile eitc -o eitc.js
+rulespec-compile eitc -o eitc.js
 
 # Generate Python EITC calculator
-rac-compile eitc --python -o eitc.py
+rulespec-compile eitc --python -o eitc.py
 
-# Compile a RAC file to JavaScript
-rac-compile compile examples/simple_tax.rac -o simple_tax.js
+# Compile a RuleSpec file to JavaScript
+rulespec-compile compile examples/simple_tax.yaml -o simple_tax.js
 
-# Compile a RAC file to Python
-rac-compile compile examples/snap.rac --python -o snap.py
+# Compile a RuleSpec file to Python
+rulespec-compile compile examples/snap.yaml --python -o snap.py
 
-# Compile a RAC file to Rust
-rac-compile compile examples/snap.rac --rust -o snap.rs
+# Compile a RuleSpec file to Rust
+rulespec-compile compile examples/snap.yaml --rust -o snap.rs
 
-# Compile a real RAC module and its local imports
-rac-compile compile examples/working_families/benefit_amount.rac --python -o benefit_amount.py
+# Compile a real RuleSpec module and its local imports
+rulespec-compile compile examples/working_families/benefit_amount.yaml --python -o benefit_amount.py
 
 # Compile with import aliases to disambiguate duplicate module symbols
-rac-compile compile examples/working_families/benefit_amount.rac --python -o benefit_amount.py
-# where benefit_amount.rac contains lines like: import "./base_amount.rac" as base
+rulespec-compile compile examples/working_families/benefit_amount.yaml --python -o benefit_amount.py
+# where benefit_amount.yaml contains lines like: import "./base_amount.yaml" as base
 
 # Compile using explicit exports plus selective imports
-rac-compile compile examples/working_families/base_amount.rac --python -o base_amount.py
-# where base_amount.rac contains lines like:
-# from "./phase_in_rate.rac" import rate
+rulespec-compile compile examples/working_families/base_amount.yaml --python -o base_amount.py
+# where base_amount.yaml contains lines like:
+# from "./phase_in_rate.yaml" import rate
 
 # Compile with aliased public outputs
-rac-compile compile examples/working_families/benefit_amount.rac --python -o benefit_amount.py
-# where benefit_amount.rac contains lines like: export benefit as benefit_amount
+rulespec-compile compile examples/working_families/benefit_amount.yaml --python -o benefit_amount.py
+# where benefit_amount.yaml contains lines like: export benefit as benefit_amount
 # and --select-output uses the public name benefit_amount
 
 # Re-export an imported symbol into a new public module surface
-rac-compile compile examples/working_families/benefit_amount.rac --python -o benefit_amount.py
-# where benefit_amount.rac contains lines like:
-# export from "./base_amount.rac" import base_amount
+rulespec-compile compile examples/working_families/benefit_amount.yaml --python -o benefit_amount.py
+# where benefit_amount.yaml contains lines like:
+# export from "./base_amount.yaml" import base_amount
 
 # Resolve bare imports through workspace module roots
-rac-compile compile benefit_amount.rac --python --module-root ./lib -o benefit_amount.py
-# or configure rac.toml:
+rulespec-compile compile benefit_amount.yaml --python --module-root ./lib -o benefit_amount.py
+# or configure rulespec.toml:
 # [module_resolution]
 # roots = ["./lib"]
 
 # Resolve stable package-prefixed imports through workspace package aliases
-rac-compile compile benefit_amount.rac --python --package tax=./packages/tax -o benefit_amount.py
-# or configure rac.toml:
+rulespec-compile compile benefit_amount.yaml --python --package tax=./packages/tax -o benefit_amount.py
+# or configure rulespec.toml:
 # [module_resolution.packages]
 # tax = "./packages/tax"
 
 # Compile only the subgraph needed for one output
-rac-compile compile examples/working_families/benefit_amount.rac --binding phase_in_rate.rate=0.25 --select-output benefit_amount --python -o benefit_amount.py
+rulespec-compile compile examples/working_families/benefit_amount.yaml --binding phase_in_rate.rate=0.25 --select-output benefit_amount --python -o benefit_amount.py
 
 # Emit the lowered selected-output bundle as JSON
-rac-compile lower examples/working_families/benefit_amount.rac --binding phase_in_rate.rate=0.25 --select-output benefit_amount -o benefit_amount.lowered.json
+rulespec-compile lower examples/working_families/benefit_amount.yaml --binding phase_in_rate.rate=0.25 --select-output benefit_amount -o benefit_amount.lowered.json
 
 # Run the built-in compiler, batch-execution, and example-oracle scorecard
-rac-compile harness
+rulespec-compile harness
 
-# Opt into curated compatibility checks against sibling live-stack RAC files
-# and AutoRAC artifacts
-rac-compile harness --include-live
+# Opt into curated compatibility checks against sibling live-stack RuleSpec files
+# and AutoRuleSpec artifacts
+rulespec-compile harness --include-live
 
 # Opt into external PolicyEngine-backed oracle checks (requires policyengine-us)
-rac-compile harness --include-external
+rulespec-compile harness --include-external
 
-# Resolve temporal unified .rac definitions for a specific date
-rac-compile compile examples/snap.rac --effective-date 2025-01-01 --python -o snap.py
+# Resolve temporal unified .yaml definitions for a specific date
+rulespec-compile compile examples/snap.yaml --effective-date 2025-01-01 --python -o snap.py
 
 # Bind a source-only external rule at compile time
-rac-compile compile examples/working_families/base_amount.rac --binding phase_in_rate.rate=0.25 --python -o base_amount.py
+rulespec-compile compile examples/working_families/base_amount.yaml --binding phase_in_rate.rate=0.25 --python -o base_amount.py
 # or, for imported source-only rules, bind by rule identity:
-rac-compile compile examples/working_families/benefit_amount.rac --binding phase_in_rate.rate=0.25 --python -o benefit_amount.py
+rulespec-compile compile examples/working_families/benefit_amount.yaml --binding phase_in_rate.rate=0.25 --python -o benefit_amount.py
 
 # Load rule bindings from a JSON file
-rac-compile compile examples/working_families/benefit_amount.rac --binding-file bindings.json --python -o benefit_amount.py
+rulespec-compile compile examples/working_families/benefit_amount.yaml --binding-file bindings.json --python -o benefit_amount.py
 
-# Load a real rac-us override artifact
-rac-compile compile examples/statute/26/32/b/2/A/base_amounts.rac \
-  --binding-file ../rac-us/irs/rev-proc-2023-34/eitc-2024.yaml \
+# Load a real rules-us override artifact
+rulespec-compile compile examples/statute/26/32/b/2/A/base_amounts.yaml \
+  --binding-file ../rules-us/irs/rev-proc-2023-34/eitc-2024.yaml \
   --effective-date 2024-06-01 \
   --python -o base_amounts.py
 
 # Output to stdout
-rac-compile eitc           # JavaScript
-rac-compile eitc --python  # Python
+rulespec-compile eitc           # JavaScript
+rulespec-compile eitc --python  # Python
 ```
 
 ### Python API
@@ -116,10 +116,10 @@ rac-compile eitc --python  # Python
 ```python
 from datetime import date
 from pathlib import Path
-from rac_compile import (
+from rulespec_compile import (
     generate_eitc_calculator_js,
     generate_eitc_calculator_py,
-    load_rac_program,
+    load_rulespec_program,
 )
 
 # Pre-built EITC calculator (JavaScript)
@@ -130,8 +130,8 @@ print(js_code)
 py_code = generate_eitc_calculator_py()
 print(py_code)
 
-# Load and compile a real source-anchored RAC file
-program = load_rac_program(Path("examples/eitc.rac"))
+# Load and compile a real source-anchored RuleSpec file
+program = load_rulespec_program(Path("examples/eitc.yaml"))
 
 python_code = program.to_python_generator(
     effective_date=date(2025, 1, 1),
@@ -149,9 +149,9 @@ rust_code = program.to_rust_generator(
 ).generate()
 ```
 
-For real policy work, keep RAC in `.rac` files with `source:` metadata and cited
+For real policy work, keep RuleSpec in `.yaml` files with `source:` metadata and cited
 rule / source metadata. The public docs prefer file-backed examples over
-inline RAC strings for that reason.
+inline RuleSpec strings for that reason.
 
 ### Generated output
 
@@ -191,35 +191,35 @@ export default calculate;
 
 ## Generic Compile Scope
 
-The generic `rac-compile compile` path now shares one parsed compile model for JavaScript, Python, and Rust.
+The generic `rulespec-compile compile` path now shares one parsed compile model for JavaScript, Python, and Rust.
 
 - Supported: straight-line formulas with assignments plus a final `return`
-- Supported: scalar expressions built from arithmetic, comparisons, boolean operators, ternaries, indexed lookup access, inline RAC conditionals like `if cond: a else: b`, and `abs` / `ceil` / `floor` / `max` / `min` / `round`
+- Supported: scalar expressions built from arithmetic, comparisons, boolean operators, ternaries, indexed lookup access, inline RuleSpec conditionals like `if cond: a else: b`, and `abs` / `ceil` / `floor` / `max` / `min` / `round`
 - Supported: limited `if` / `elif` / `else` formula blocks when every reachable path returns a value
 - Supported: external numeric rule references discovered from parsed formulas, with free references exposed as calculator inputs
-- Supported: inline numeric external rule values from `.rac` `values:` blocks and single-entry temporal `.rac` source rules, with exact integer-vs-number kinds preserved in the lowered bundle
-- Supported: multi-entry temporal unified `.rac` external values and formulas when `--effective-date` is provided
+- Supported: inline numeric external rule values from `.yaml` `values:` blocks and single-entry temporal `.yaml` source rules, with exact integer-vs-number kinds preserved in the lowered bundle
+- Supported: multi-entry temporal unified `.yaml` external values and formulas when `--effective-date` is provided
 - Supported: source-only external rules when you bind them explicitly with `--binding NAME=VALUE`, `--binding module_identity.symbol=VALUE`, or indexed variants
-- Supported: source-only external rules from repeated `--binding-file` inputs, including JSON/YAML bundles and the current `rac-us` override-artifact format, with inline `--binding` flags overriding file values
+- Supported: source-only external rules from repeated `--binding-file` inputs, including JSON/YAML bundles and the current `rules-us` override-artifact format, with inline `--binding` flags overriding file values
 - Supported: explicit scalar-vs-indexed external lookup contracts in the lowered bundle, with bare rule references validated against resolved value shape
 - Supported: output-focused compilation via repeated `--select-output NAME`, pruning to the reachable variable subgraph for those outputs
-- Supported: lowered bundle emission via `rac-compile lower`, producing a serializable post-resolution artifact with explicit inputs, typed external values, typed ordered computations, and typed public outputs
-- Supported: Rust output via `rac-compile compile ... --rust`, using the same lowered bundle as JS/Python for the validated numeric/boolean subset
-- Supported: local file imports written as `import "./shared.rac"` or `import "../common/base.rac"`, with graph-wide reachability pruning from the selected outputs
+- Supported: lowered bundle emission via `rulespec-compile lower`, producing a serializable post-resolution artifact with explicit inputs, typed external values, typed ordered computations, and typed public outputs
+- Supported: Rust output via `rulespec-compile compile ... --rust`, using the same lowered bundle as JS/Python for the validated numeric/boolean subset
+- Supported: local file imports written as `import "./shared.yaml"` or `import "../common/base.yaml"`, with graph-wide reachability pruning from the selected outputs
 - Supported: spec-style top-level or per-rule `imports:` blocks using `path#symbol` syntax, including root-qualified paths like `statute/...` and `regulation/...`
-- Supported: bare imports like `from "tax/shared.rac" import rate` when resolved through `rac.toml` module roots or repeated `--module-root DIR`
-- Supported: stable workspace package aliases through `rac.toml` `[module_resolution.packages]` or repeated `--package NAME=DIR`
-- Supported: import aliases written as `import "./shared.rac" as shared`, with module-qualified references like `shared.rate`
+- Supported: bare imports like `from "tax/shared.yaml" import rate` when resolved through `rulespec.toml` module roots or repeated `--module-root DIR`
+- Supported: stable workspace package aliases through `rulespec.toml` `[module_resolution.packages]` or repeated `--package NAME=DIR`
+- Supported: import aliases written as `import "./shared.yaml" as shared`, with module-qualified references like `shared.rate`
 - Supported: explicit module exports via `export tax, taxable_income`
 - Supported: export aliases via `export taxable_income as base_income`
-- Supported: module re-exports via `export from "./shared.rac" import tax, rate as public_rate`
-- Supported: selective imports via `from "./shared.rac" import tax, threshold as income_threshold`
+- Supported: module re-exports via `export from "./shared.yaml" import tax, rate as public_rate`
+- Supported: selective imports via `from "./shared.yaml" import tax, threshold as income_threshold`
 - Supported: entry-file output selection against the public export surface, including aliased output names
 - Supported: first-class rule/module identity preserved through lowered bundles and generated citations; canonical `statute/...`, `regulation/...`, and `legislation/...` files use their path identity
 - Supported: imported free inputs are exposed in lowered bundles and generated runtime interfaces as `module_identity.symbol` instead of merged internal names
 - Unsupported: package registries, remote imports, nested namespace chains beyond `alias.value`, wildcard re-exports, loops, match/case, try/except, and other statement forms outside assignments, `if` / `elif` / `else`, and `return`
 - Unsupported: attribute access, custom helper calls, slices, and other expression forms outside the validated scalar subset
-- Unsupported: string formula literals in Rust output, and the prebuilt `rac-compile eitc` shortcut still only emits JavaScript or Python
+- Unsupported: string formula literals in Rust output, and the prebuilt `rulespec-compile eitc` shortcut still only emits JavaScript or Python
 
 If a file has multiple temporal entries and you do not supply an effective date, the compiler errors instead of guessing.
 If a referenced external rule has no inline numeric values and you do not bind it explicitly, the compiler errors instead of inventing a placeholder.
@@ -231,14 +231,14 @@ If a file defines explicit exports, output selection and generated result keys u
 If a re-export asks for a name a dependency does not export, the compiler errors instead of silently omitting it.
 If a bare import has no configured module root, or resolves to more than one file across roots, the compiler errors instead of guessing.
 If a package-prefixed import names an unknown package alias, or a configured package alias points at no file, the compiler errors instead of falling back to a different root.
-If a loaded program contains two different `.rac` files with the same canonical rule identity, the compiler errors instead of inventing an ambiguous identity.
+If a loaded program contains two different `.yaml` files with the same canonical rule identity, the compiler errors instead of inventing an ambiguous identity.
 If a bare rule binding name matches more than one imported source-only rule, the compiler errors instead of guessing; bind it as `module_identity.symbol`.
 
 Unsupported constructs fail with an explicit compiler error instead of generating misleading output.
 
 ### Lowered Bundle
 
-`rac-compile lower` emits the compiler's backend-neutral bundle after import resolution,
+`rulespec-compile lower` emits the compiler's backend-neutral bundle after import resolution,
 temporal resolution, external rule binding, and selected-output pruning. The JSON payload
 includes:
 
@@ -300,8 +300,8 @@ JSON shape is still accepted as an adapter. The explicit `bindings` form is the
 real contract because it carries rule identity, metadata, and optional
 effective dates.
 
-`--binding-file` can also consume the current RAC-side override artifacts already
-checked into sibling repos, such as `../rac-us/irs/rev-proc-2023-34/eitc-2024.yaml`.
+`--binding-file` can also consume the current RuleSpec-side override artifacts already
+checked into sibling repos, such as `../rules-us/irs/rev-proc-2023-34/eitc-2024.yaml`.
 Those files resolve their `overrides: path#symbol` entries into rule bindings
 automatically, and unrelated entries are ignored when they target rules outside
 the graph you are compiling. Repeated `--binding-file` flags are merged in order.
@@ -312,25 +312,25 @@ tables keyed by decimal rates, still fail loudly instead of being coerced.
 
 ### Compiler Harness
 
-`rac-compile harness` runs a built-in scorecard of named compiler cases across the
+`rulespec-compile harness` runs a built-in scorecard of named compiler cases across the
 current supported subset. It is intended to give future compiler work an explicit
 objective target: improve the harness score by adding support, or add a new
 failing case first and then make it pass.
 
-- Use `rac-compile harness` for the human-readable scorecard
-- Use `rac-compile harness --json` for machine-readable output
+- Use `rulespec-compile harness` for the human-readable scorecard
+- Use `rulespec-compile harness --json` for machine-readable output
 - Use repeated `--case NAME` to run a focused subset while developing a feature
 - The harness now also validates Rust when `rustc` is available locally
-- `rac-compile harness --include-live` opts into curated real-file compatibility checks against sibling repos such as `rac-us`, `rac-us-co`, and current AutoRAC artifacts
-- `rac-compile harness --include-external` opts into PolicyEngine-backed oracle cases when `policyengine-us` is installed
+- `rulespec-compile harness --include-live` opts into curated real-file compatibility checks against sibling repos such as `rules-us`, `rules-us-co`, and current AutoRuleSpec artifacts
+- `rulespec-compile harness --include-external` opts into PolicyEngine-backed oracle cases when `policyengine-us` is installed
 
 ### Validation
 
-`rac-validate --mode sample` now runs the shipped compiled `.rac` examples in the
-per-household RAC lane before comparing them to PolicyEngine. The full vectorized
+`rulespec-validate --mode sample` now runs the shipped compiled `.yaml` examples in the
+per-household RuleSpec lane before comparing them to PolicyEngine. The full vectorized
 validation path now uses the lowered-program batch executor for the current
 validated lowered subset, including limited `if` / `elif` / `else` statement
-blocks, instead of the old handwritten RAC formulas.
+blocks, instead of the old handwritten RuleSpec formulas.
 Validation reports label the current modes explicitly as
 `compiled_example` for per-household sample validation and `compiled_batch`
 for the full batch path.
@@ -345,10 +345,10 @@ pip install -e ".[dev]"
 pytest
 
 # Run with coverage
-pytest --cov=rac_compile
+pytest --cov=rulespec_compile
 ```
 
 ## See also
 
-- [Rules Foundation](https://rules.foundation) - Open infrastructure for encoded law
+- [The Axiom Foundation](https://axiom-foundation.org) - Open infrastructure for encoded law
 - [pe-compile](https://github.com/PolicyEngine/pe-compile) - Similar tool for PolicyEngine

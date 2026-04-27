@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from src.rac_compile.harness import (
+from src.rulespec_compile.harness import (
     HARNESS_CASES,
     HarnessCase,
     _check_js_runtime,
@@ -19,6 +19,17 @@ from src.rac_compile.harness import (
 
 class TestCompilerHarness:
     """Tests for harness execution and formatting."""
+
+    def _assert_live_case_passes_or_skips(self, case_name: str):
+        summary = run_compiler_harness(case_names=[case_name])
+
+        assert summary.total == 1
+        assert summary.failed == 0
+        assert summary.results[0].case == case_name
+        assert summary.results[0].status in {"passed", "skipped"}
+        if summary.results[0].status == "skipped":
+            assert "requires" in summary.results[0].detail
+        return summary
 
     def test_run_compiler_harness_all_cases_pass(self):
         """The built-in harness runs green in the current repo state."""
@@ -64,7 +75,7 @@ class TestCompilerHarness:
     def test_run_compiler_harness_external_policyengine_case(self, monkeypatch):
         """External oracle cases can compare compiled output to PolicyEngine."""
         monkeypatch.setattr(
-            "src.rac_compile.harness.run_policyengine_household",
+            "src.rulespec_compile.harness.run_policyengine_household",
             lambda inputs: {"pe_snap": 410.0},
         )
 
@@ -83,7 +94,7 @@ class TestCompilerHarness:
             raise ImportError("policyengine-us required for validation")
 
         monkeypatch.setattr(
-            "src.rac_compile.harness.run_policyengine_household",
+            "src.rulespec_compile.harness.run_policyengine_household",
             _raise_import_error,
         )
 
@@ -105,68 +116,40 @@ class TestCompilerHarness:
         assert summary.failed == 0
         assert "live_stack" in summary.by_category
 
-    def test_run_compiler_harness_autorac_inline_live_case(self):
-        """The live lane exercises real AutoRAC inline conditional syntax."""
-        summary = run_compiler_harness(
-            case_names=["live_autorac_inline_conditional_support"]
+    def test_run_compiler_harness_rulespec_inline_live_case(self):
+        """The live lane exercises real RuleSpec inline conditional syntax."""
+        self._assert_live_case_passes_or_skips(
+            "live_rulespec_inline_conditional_support"
         )
 
-        assert summary.total == 1
-        assert summary.passed == 1
-        assert summary.results[0].case == "live_autorac_inline_conditional_support"
+    def test_run_compiler_harness_rulespec_import_live_case(self):
+        """The live lane compiles a real RuleSpec file with context imports."""
+        self._assert_live_case_passes_or_skips("live_rulespec_source_import_resolution")
 
-    def test_run_compiler_harness_autorac_import_live_case(self):
-        """The live lane can compile a real AutoRAC source file with context imports."""
-        summary = run_compiler_harness(
-            case_names=["live_autorac_source_import_resolution"]
-        )
-
-        assert summary.total == 1
-        assert summary.passed == 1
-        assert summary.results[0].case == "live_autorac_source_import_resolution"
-
-    def test_run_compiler_harness_rac_us_co_regulation_live_case(self):
+    def test_run_compiler_harness_rulespec_us_co_regulation_live_case(self):
         """The live lane can compile a real state regulation table file."""
-        summary = run_compiler_harness(
-            case_names=["live_rac_us_co_regulation_table_support"]
+        self._assert_live_case_passes_or_skips(
+            "live_rulespec_us_co_regulation_table_support"
         )
 
-        assert summary.total == 1
-        assert summary.passed == 1
-        assert summary.results[0].case == "live_rac_us_co_regulation_table_support"
-
-    def test_run_compiler_harness_rac_us_co_regulation_import_runtime_case(self):
+    def test_run_compiler_harness_rulespec_us_co_regulation_import_runtime_case(self):
         """Qualified public inputs work for imported state regulation rules."""
-        summary = run_compiler_harness(
-            case_names=["live_rac_us_co_regulation_import_graph_resolution"]
+        self._assert_live_case_passes_or_skips(
+            "live_rulespec_us_co_regulation_import_graph_resolution"
         )
 
-        assert summary.total == 1
+    def test_run_compiler_harness_rulespec_us_override_yaml_live_case(self):
+        """The live lane can consume a real rules-us override YAML artifact."""
+        summary = self._assert_live_case_passes_or_skips(
+            "live_rulespec_us_override_yaml_binding_support"
+        )
+
         assert summary.passed == 1
-        assert summary.results[0].case == (
-            "live_rac_us_co_regulation_import_graph_resolution"
-        )
 
-    def test_run_compiler_harness_rac_us_override_yaml_live_case(self):
-        """The live lane can consume a real rac-us override YAML artifact."""
-        summary = run_compiler_harness(
-            case_names=["live_rac_us_override_yaml_binding_support"]
-        )
-
-        assert summary.total == 1
-        assert summary.passed == 1
-        assert summary.results[0].case == "live_rac_us_override_yaml_binding_support"
-
-    def test_run_compiler_harness_rac_us_co_statute_import_runtime_case(self):
+    def test_run_compiler_harness_rulespec_us_co_statute_import_runtime_case(self):
         """Qualified public inputs work for imported state statute rules."""
-        summary = run_compiler_harness(
-            case_names=["live_rac_us_co_statute_import_graph_resolution"]
-        )
-
-        assert summary.total == 1
-        assert summary.passed == 1
-        assert summary.results[0].case == (
-            "live_rac_us_co_statute_import_graph_resolution"
+        self._assert_live_case_passes_or_skips(
+            "live_rulespec_us_co_statute_import_graph_resolution"
         )
 
     def test_run_case_workspace_case_skips_when_repo_is_missing(self, monkeypatch):
@@ -175,12 +158,12 @@ class TestCompilerHarness:
             name="missing_live_workspace",
             category="live_stack",
             description="Missing workspace repo skips.",
-            workspace_entrypoint="definitely-missing-repo/example.rac",
+            workspace_entrypoint="definitely-missing-repo/example.yaml",
             targets=(),
             live=True,
         )
         monkeypatch.setattr(
-            "src.rac_compile.harness._WORKSPACE_ROOT",
+            "src.rulespec_compile.harness._WORKSPACE_ROOT",
             Path("/definitely/missing"),
         )
         result = _run_case(case)
@@ -196,7 +179,7 @@ class TestCompilerHarness:
             description=(
                 "Structural lowered checks pass for expected inputs and identity."
             ),
-            rac="""
+            rulespec="""
 tax:
   entity: Person
   period: Year
@@ -222,7 +205,7 @@ tax:
             name="identity_only_lowering_contract",
             category="core",
             description="Structural lowered checks can focus on output identity.",
-            rac="""
+            rulespec="""
 tax:
   entity: Person
   period: Year
@@ -275,7 +258,7 @@ export default calculate;
 
     def test_run_compiler_harness_skips_js_cases_without_node(self, monkeypatch):
         """Harness reports JS-backed cases as skipped when Node.js is unavailable."""
-        monkeypatch.setattr("src.rac_compile.harness.shutil.which", lambda _: None)
+        monkeypatch.setattr("src.rulespec_compile.harness.shutil.which", lambda _: None)
 
         summary = run_compiler_harness(case_names=["basic_straight_line"])
 

@@ -1,4 +1,4 @@
-"""Batch execution for lowered RAC programs over NumPy/Pandas data."""
+"""Batch execution for lowered RuleSpec programs over NumPy/Pandas data."""
 
 from __future__ import annotations
 

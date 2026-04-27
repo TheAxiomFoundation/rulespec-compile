@@ -252,7 +252,7 @@ def load_rule_bindings_file(path: Path | None) -> RuleBindingBundle:
             source_label=f"Rule binding file '{path}'",
             artifact_path=path,
         )
-    if path.suffix.lower() == ".rac":
+    if path.suffix.lower() == ".yaml":
         raise RuleBindingError(
             f"Rule binding file '{path}' is not a supported override artifact. "
             "Expected top-level entries with 'overrides:' targets."
@@ -273,10 +273,10 @@ def _load_rule_binding_mapping(path: Path) -> Any:
             ) from exc
 
     if suffix in {".yaml", ".yml"}:
-        return _load_yaml_binding_mapping(path, text)
-
-    if suffix == ".rac":
-        return _load_yaml_binding_mapping(path, _strip_rac_docstrings(text))
+        try:
+            return _load_yaml_binding_mapping(path, text)
+        except RuleBindingError:
+            return _load_yaml_binding_mapping(path, _strip_rulespec_docstrings(text))
 
     try:
         return json.loads(text)
@@ -294,8 +294,8 @@ def _load_yaml_binding_mapping(path: Path, text: str) -> Any:
         ) from exc
 
 
-def _strip_rac_docstrings(text: str) -> str:
-    """Remove triple-quoted prose blocks from override-style .rac artifacts."""
+def _strip_rulespec_docstrings(text: str) -> str:
+    """Remove triple-quoted prose blocks from override-style .yaml artifacts."""
     stripped_lines: list[str] = []
     in_docstring = False
     for line in text.splitlines():
@@ -450,7 +450,7 @@ def _looks_like_legacy_parameter_bundle(raw: dict[str, Any]) -> bool:
 
 
 def _looks_like_override_artifact(raw: dict[str, Any]) -> bool:
-    """Return whether a mapping looks like a RAC override artifact."""
+    """Return whether a mapping looks like a RuleSpec override artifact."""
     for key, value in raw.items():
         if key in {"source", "status"}:
             continue
@@ -465,7 +465,7 @@ def _parse_override_artifact_bundle(
     source_label: str,
     artifact_path: Path,
 ) -> RuleBindingBundle:
-    """Parse a RAC-side override artifact into a binding bundle."""
+    """Parse a RuleSpec-side override artifact into a binding bundle."""
     source_block = raw.get("source")
     source_summary = _format_artifact_source(source_block)
     effective_date = _parse_artifact_effective_date(

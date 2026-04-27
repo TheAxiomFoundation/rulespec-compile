@@ -1,11 +1,11 @@
 """
 Runners for validation: execute calculators on CPS microdata.
 
-Provides functions to run both RAC calculators and PolicyEngine-US
+Provides functions to run both RuleSpec calculators and PolicyEngine-US
 on the same household data for comparison.
 
 Two modes:
-1. Vectorized (fast): Use PE Microsimulation on full CPS, vectorized RAC
+1. Vectorized (fast): Use PE Microsimulation on full CPS, vectorized RuleSpec
 2. Individual (slow): Build individual situations for each household
 """
 
@@ -23,7 +23,7 @@ from tqdm import tqdm
 
 from ..batch_executor import execute_lowered_program_batch
 from ..compile_model import LoweredProgram
-from ..program import load_rac_program
+from ..program import load_rulespec_program
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _VALIDATION_EFFECTIVE_DATE = date(2025, 1, 1)
@@ -51,9 +51,9 @@ class LoweredValidationPrograms:
 def _load_lowered_validation_programs() -> LoweredValidationPrograms:
     """Lower the shipped validation examples once."""
     return LoweredValidationPrograms(
-        eitc=_load_validation_program("eitc.rac", outputs=["eitc"]),
-        ctc=_load_validation_program("ctc.rac", outputs=["ctc", "actc"]),
-        snap=_load_validation_program("snap.rac", outputs=["snap_benefit"]),
+        eitc=_load_validation_program("eitc.yaml", outputs=["eitc"]),
+        ctc=_load_validation_program("ctc.yaml", outputs=["ctc", "actc"]),
+        snap=_load_validation_program("snap.yaml", outputs=["snap_benefit"]),
     )
 
 
@@ -74,7 +74,7 @@ def _load_validation_program(
     outputs: list[str],
 ) -> LoweredProgram:
     """Lower one shipped validation example once."""
-    return load_rac_program(_REPO_ROOT / "examples" / filename).to_lowered_program(
+    return load_rulespec_program(_REPO_ROOT / "examples" / filename).to_lowered_program(
         effective_date=_VALIDATION_EFFECTIVE_DATE,
         outputs=outputs,
     )
@@ -93,9 +93,9 @@ def _lowered_program_to_python_callable(
     return calculate
 
 
-def run_rac(df: pd.DataFrame, show_progress: bool = True) -> pd.DataFrame:
+def run_rulespec(df: pd.DataFrame, show_progress: bool = True) -> pd.DataFrame:
     """
-    Run compiled RAC examples on CPS household data.
+    Run compiled RuleSpec examples on CPS household data.
 
     Args:
         df: DataFrame with household data (from load_cps_data)
@@ -107,7 +107,7 @@ def run_rac(df: pd.DataFrame, show_progress: bool = True) -> pd.DataFrame:
     calculators = _load_compiled_validation_calculators()
     results = []
     iterator = (
-        tqdm(df.iterrows(), total=len(df), desc="RAC")
+        tqdm(df.iterrows(), total=len(df), desc="RuleSpec")
         if show_progress
         else df.iterrows()
     )
@@ -133,15 +133,15 @@ def run_rac(df: pd.DataFrame, show_progress: bool = True) -> pd.DataFrame:
         results.append(
             {
                 "household_id": row["household_id"],
-                "rac_eitc": eitc_result["eitc"],
-                "rac_ctc": ctc_result["ctc"],
-                "rac_actc": ctc_result["actc"],
-                "rac_snap": snap_result["snap_benefit"],
+                "rulespec_eitc": eitc_result["eitc"],
+                "rulespec_ctc": ctc_result["ctc"],
+                "rulespec_actc": ctc_result["actc"],
+                "rulespec_snap": snap_result["snap_benefit"],
             }
         )
 
     results_df = pd.DataFrame(results)
-    results_df.attrs["rac_execution_mode"] = "compiled_example"
+    results_df.attrs["rulespec_execution_mode"] = "compiled_example"
     return results_df
 
 
@@ -302,7 +302,7 @@ def run_both(
     show_progress: bool = True,
 ) -> pd.DataFrame:
     """
-    Run both RAC and PolicyEngine on the same data.
+    Run both RuleSpec and PolicyEngine on the same data.
 
     Args:
         df: DataFrame with household data
@@ -312,14 +312,14 @@ def run_both(
     Returns:
         Merged DataFrame with both sets of results
     """
-    rac_results = run_rac(df, show_progress=show_progress)
+    rulespec_results = run_rulespec(df, show_progress=show_progress)
     pe_results = run_policyengine(df, year, show_progress)
 
     # Merge results
-    merged = df.merge(rac_results, on="household_id")
+    merged = df.merge(rulespec_results, on="household_id")
     merged = merged.merge(pe_results, on="household_id")
-    merged.attrs["rac_execution_mode"] = rac_results.attrs.get(
-        "rac_execution_mode",
+    merged.attrs["rulespec_execution_mode"] = rulespec_results.attrs.get(
+        "rulespec_execution_mode",
         "unknown",
     )
     merged.attrs["policyengine_execution_mode"] = pe_results.attrs.get(
@@ -335,9 +335,9 @@ def run_both(
 # =============================================================================
 
 
-def run_rac_vectorized(df: pd.DataFrame) -> pd.DataFrame:
+def run_rulespec_vectorized(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Run compiled RAC examples over a full DataFrame batch.
+    Run compiled RuleSpec examples over a full DataFrame batch.
 
     Uses the generic lowered-program batch executor for the current validated
     subset instead of handwritten vectorized formulas.
@@ -366,13 +366,13 @@ def run_rac_vectorized(df: pd.DataFrame) -> pd.DataFrame:
     results_df = pd.DataFrame(
         {
             "household_id": df["household_id"].to_numpy(),
-            "rac_eitc": eitc_results["eitc"].to_numpy(),
-            "rac_ctc": ctc_results["ctc"].to_numpy(),
-            "rac_actc": ctc_results["actc"].to_numpy(),
-            "rac_snap": snap_results["snap_benefit"].to_numpy(),
+            "rulespec_eitc": eitc_results["eitc"].to_numpy(),
+            "rulespec_ctc": ctc_results["ctc"].to_numpy(),
+            "rulespec_actc": ctc_results["actc"].to_numpy(),
+            "rulespec_snap": snap_results["snap_benefit"].to_numpy(),
         }
     )
-    results_df.attrs["rac_execution_mode"] = "compiled_batch"
+    results_df.attrs["rulespec_execution_mode"] = "compiled_batch"
     return results_df
 
 
@@ -436,7 +436,7 @@ def run_both_vectorized(year: int = 2025) -> pd.DataFrame:
     Run full CPS validation using vectorized operations.
 
     Extracts inputs and PE outputs from Microsimulation, then runs
-    RAC on the same inputs for comparison.
+    RuleSpec on the same inputs for comparison.
 
     Handles different entity levels:
     - Tax unit: EITC, CTC, ACTC
@@ -543,8 +543,8 @@ def run_both_vectorized(year: int = 2025) -> pd.DataFrame:
 
     spm_df = pd.DataFrame(spm_records)
 
-    # Run compiled RAC SNAP on SPM units
-    print("\nRunning RAC SNAP (compiled batch)...")
+    # Run compiled RuleSpec SNAP on SPM units
+    print("\nRunning RuleSpec SNAP (compiled batch)...")
     programs = _load_lowered_validation_programs()
     snap_results = execute_lowered_program_batch(
         programs.snap,
@@ -553,20 +553,20 @@ def run_both_vectorized(year: int = 2025) -> pd.DataFrame:
             "gross_income": spm_df["gross_monthly_income"].to_numpy(),
         },
     )
-    spm_df["rac_snap"] = snap_results["snap_benefit"].to_numpy()
+    spm_df["rulespec_snap"] = snap_results["snap_benefit"].to_numpy()
 
     # ==========================================================================
-    # RUN RAC ON TAX UNITS
+    # RUN RuleSpec ON TAX UNITS
     # ==========================================================================
-    print("Running RAC tax credits (vectorized)...")
-    rac_tu = run_rac_vectorized(tu_df)
+    print("Running RuleSpec tax credits (vectorized)...")
+    rulespec_tu = run_rulespec_vectorized(tu_df)
 
     # Merge tax unit results
-    tu_merged = tu_df.merge(rac_tu, on="household_id")
+    tu_merged = tu_df.merge(rulespec_tu, on="household_id")
 
     # Add SNAP columns as NaN (different entity level)
     tu_merged["pe_snap"] = np.nan
-    tu_merged["rac_snap"] = np.nan
+    tu_merged["rulespec_snap"] = np.nan
 
     # ==========================================================================
     # COMBINE RESULTS
@@ -578,7 +578,7 @@ def run_both_vectorized(year: int = 2025) -> pd.DataFrame:
 
     # Store SPM results as attribute for separate SNAP validation
     tu_merged.attrs["spm_snap_data"] = spm_df
-    tu_merged.attrs["rac_execution_mode"] = "compiled_batch"
+    tu_merged.attrs["rulespec_execution_mode"] = "compiled_batch"
     tu_merged.attrs["policyengine_execution_mode"] = "policyengine_microsim"
 
     return tu_merged

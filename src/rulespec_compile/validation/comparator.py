@@ -1,5 +1,5 @@
 """
-Comparator: Compare RAC results against PolicyEngine-US.
+Comparator: Compare RuleSpec results against PolicyEngine-US.
 
 Generates detailed comparison reports with tolerance-based matching,
 following the policyengine-taxsim pattern.
@@ -33,7 +33,7 @@ class MismatchRecord:
 
     household_id: int
     variable: str
-    rac_value: float
+    rulespec_value: float
     policyengine_value: float
     difference: float
     pct_difference: Optional[float] = None
@@ -43,7 +43,7 @@ class MismatchRecord:
 
 @dataclass
 class ComparisonResults:
-    """Results from comparing RAC vs PolicyEngine."""
+    """Results from comparing RuleSpec vs PolicyEngine."""
 
     total_households: int
     variables_compared: List[str]
@@ -52,14 +52,14 @@ class ComparisonResults:
     match_rates: Dict[str, float]
     config: ComparisonConfig
     full_data: Optional[pd.DataFrame] = None
-    rac_execution_mode: str = "unknown"
+    rulespec_execution_mode: str = "unknown"
     policyengine_execution_mode: str = "unknown"
 
     def summary(self) -> Dict[str, Any]:
         """Generate summary statistics."""
         return {
             "total_households": self.total_households,
-            "rac_execution_mode": self.rac_execution_mode,
+            "rulespec_execution_mode": self.rulespec_execution_mode,
             "policyengine_execution_mode": self.policyengine_execution_mode,
             "variables": {
                 var: {
@@ -76,10 +76,10 @@ class ComparisonResults:
         """Generate detailed text report."""
         lines = [
             "=" * 70,
-            "RAC vs PolicyEngine-US Validation Report",
+            "RuleSpec vs PolicyEngine-US Validation Report",
             "=" * 70,
             f"Total Households: {self.total_households:,}",
-            f"RAC execution mode: {self.rac_execution_mode}",
+            f"RuleSpec execution mode: {self.rulespec_execution_mode}",
             f"PolicyEngine execution mode: {self.policyengine_execution_mode}",
             "",
         ]
@@ -120,7 +120,7 @@ class ComparisonResults:
                 lines.append("  Worst mismatches:")
                 for m in worst:
                     lines.append(
-                        f"    HH {m.household_id}: rac=${m.rac_value:.0f}, "
+                        f"    HH {m.household_id}: rulespec=${m.rulespec_value:.0f}, "
                         f"PE=${m.policyengine_value:.0f}, diff=${m.difference:.0f}"
                     )
                 lines.append("")
@@ -151,7 +151,7 @@ class ComparisonResults:
                     [
                         {
                             "household_id": m.household_id,
-                            "rac_value": m.rac_value,
+                            "rulespec_value": m.rulespec_value,
                             "policyengine_value": m.policyengine_value,
                             "difference": m.difference,
                             "pct_difference": m.pct_difference,
@@ -167,13 +167,13 @@ class ComparisonResults:
 
 
 class Comparator:
-    """Compare RAC vs PolicyEngine results."""
+    """Compare RuleSpec vs PolicyEngine results."""
 
     VARIABLES = [
-        ("eitc", "rac_eitc", "pe_eitc"),
-        ("ctc", "rac_ctc", "pe_ctc"),
-        ("actc", "rac_actc", "pe_actc"),
-        ("snap", "rac_snap", "pe_snap"),
+        ("eitc", "rulespec_eitc", "pe_eitc"),
+        ("ctc", "rulespec_ctc", "pe_ctc"),
+        ("actc", "rulespec_actc", "pe_actc"),
+        ("snap", "rulespec_snap", "pe_snap"),
     ]
 
     def __init__(self, config: Optional[ComparisonConfig] = None):
@@ -181,10 +181,10 @@ class Comparator:
 
     def compare(self, df: pd.DataFrame) -> ComparisonResults:
         """
-        Compare RAC and PolicyEngine results.
+        Compare RuleSpec and PolicyEngine results.
 
         Args:
-            df: DataFrame with both RAC and PE results
+            df: DataFrame with both RuleSpec and PE results
                 (output from runners.run_both)
                 May have attrs["spm_snap_data"] for SNAP comparison
 
@@ -197,16 +197,16 @@ class Comparator:
         match_rates = {}
 
         # Compare tax unit level variables (EITC, CTC, ACTC)
-        for var_name, rac_col, pe_col in self.VARIABLES:
+        for var_name, rulespec_col, pe_col in self.VARIABLES:
             if var_name == "snap":
                 continue  # Handle separately below
 
-            if rac_col not in df.columns or pe_col not in df.columns:
+            if rulespec_col not in df.columns or pe_col not in df.columns:
                 continue
 
             tolerance = getattr(self.config, f"{var_name}_tolerance")
             var_matches, var_mismatches = self._compare_variable(
-                df, var_name, rac_col, pe_col, tolerance
+                df, var_name, rulespec_col, pe_col, tolerance
             )
             matches[var_name] = var_matches
             mismatches[var_name] = var_mismatches
@@ -221,7 +221,7 @@ class Comparator:
             snap_matches, snap_mismatches = self._compare_variable(
                 spm_df,
                 "snap",
-                "rac_snap",
+                "rulespec_snap",
                 "pe_snap",
                 self.config.snap_tolerance,
                 id_col="spm_unit_id",  # SPM uses different ID column
@@ -240,7 +240,7 @@ class Comparator:
 
         return ComparisonResults(
             total_households=total,
-            rac_execution_mode=df.attrs.get("rac_execution_mode", "unknown"),
+            rulespec_execution_mode=df.attrs.get("rulespec_execution_mode", "unknown"),
             policyengine_execution_mode=df.attrs.get(
                 "policyengine_execution_mode",
                 "unknown",
@@ -257,7 +257,7 @@ class Comparator:
         self,
         df: pd.DataFrame,
         var_name: str,
-        rac_col: str,
+        rulespec_col: str,
         pe_col: str,
         tolerance: float,
         id_col: Optional[str] = None,
@@ -276,7 +276,7 @@ class Comparator:
 
         # Check which are within tolerance
         is_match = np.isclose(
-            df_valid[rac_col],
+            df_valid[rulespec_col],
             df_valid[pe_col],
             atol=tolerance,
             equal_nan=True,
@@ -287,9 +287,9 @@ class Comparator:
         # Collect mismatches
         mismatch_rows = df_valid[~is_match]
         for _, row in mismatch_rows.iterrows():
-            rac_val = row[rac_col]
+            rulespec_val = row[rulespec_col]
             pe_val = row[pe_col]
-            diff = rac_val - pe_val
+            diff = rulespec_val - pe_val
 
             # Calculate percentage difference (avoid div by zero)
             pct_diff = None
@@ -300,7 +300,7 @@ class Comparator:
                 MismatchRecord(
                     household_id=row[id_col],
                     variable=var_name,
-                    rac_value=rac_val,
+                    rulespec_value=rulespec_val,
                     policyengine_value=pe_val,
                     difference=diff,
                     pct_difference=pct_diff,

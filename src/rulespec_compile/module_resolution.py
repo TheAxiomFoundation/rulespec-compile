@@ -1,4 +1,4 @@
-"""Workspace module-root and package resolution for RAC program imports."""
+"""Workspace module-root and package resolution for RuleSpec program imports."""
 
 from __future__ import annotations
 
@@ -10,12 +10,12 @@ import tomllib
 
 
 class ModuleResolutionError(ValueError):
-    """Raised when rac.toml or configured module roots are invalid."""
+    """Raised when rulespec.toml or configured module roots are invalid."""
 
 
 @dataclass(frozen=True)
 class ModuleResolutionConfig:
-    """Resolved module-root and package configuration for one RAC program."""
+    """Resolved module-root and package configuration for one RuleSpec program."""
 
     roots: tuple[Path, ...] = ()
     packages: dict[str, Path] = field(default_factory=dict)
@@ -24,7 +24,7 @@ class ModuleResolutionConfig:
 
 @dataclass
 class ImportResolver:
-    """Resolve RAC imports relative to files, package aliases, or module roots."""
+    """Resolve RuleSpec imports relative to files, package aliases, or module roots."""
 
     config: ModuleResolutionConfig
     _configured_import_cache: dict[str, Path] = field(default_factory=dict)
@@ -79,7 +79,7 @@ class ImportResolver:
             configured_roots = ", ".join(str(root) for root in self.config.roots)
             raise ModuleResolutionError(
                 f"Bare import '{import_path}' was not found in configured module "
-                f"roots: {configured_roots or '(none)'}. Add a rac.toml "
+                f"roots: {configured_roots or '(none)'}. Add a rulespec.toml "
                 "module_resolution.roots entry or pass --module-root."
             )
         unique_matches = list(dict.fromkeys(matches))
@@ -97,7 +97,7 @@ def build_import_resolver(
     module_roots: list[Path] | tuple[Path, ...] | None = None,
     module_packages: dict[str, Path] | None = None,
 ) -> ImportResolver:
-    """Build the resolver for one entrypoint from rac.toml plus CLI overrides."""
+    """Build the resolver for one entrypoint from rulespec.toml plus CLI overrides."""
     config = discover_module_resolution(entry_path)
     extra_roots = tuple(root.resolve() for root in module_roots or [])
     extra_packages = {
@@ -114,10 +114,10 @@ def build_import_resolver(
 
 
 def discover_module_resolution(entry_path: Path) -> ModuleResolutionConfig:
-    """Discover rac.toml module roots and package aliases from the tree."""
+    """Discover rulespec.toml module roots and package aliases from the tree."""
     start = entry_path.parent if entry_path.is_file() else entry_path
     for directory in (start, *start.parents):
-        config_path = directory / "rac.toml"
+        config_path = directory / "rulespec.toml"
         if not config_path.is_file():
             continue
         return _load_module_resolution_config(config_path)
@@ -125,7 +125,7 @@ def discover_module_resolution(entry_path: Path) -> ModuleResolutionConfig:
 
 
 def _load_module_resolution_config(config_path: Path) -> ModuleResolutionConfig:
-    """Load module roots and package aliases from one rac.toml file."""
+    """Load module roots and package aliases from one rulespec.toml file."""
     try:
         payload = tomllib.loads(config_path.read_text())
     except tomllib.TOMLDecodeError as exc:

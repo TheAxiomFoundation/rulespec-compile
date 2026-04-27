@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "rac-compile"
+name = "rulespec-compile"
 version = "0.2.0"
-description = "Compile RAC .rac files to standalone JavaScript and Python calculators"
+description = "Compile RuleSpec .yaml files to standalone JavaScript and Python calculators"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
 authors = [
-    { name = "Rules Foundation", email = "hello@rules.foundation" },
+    { name = "The Axiom Foundation", email = "hello@axiom-foundation.org" },
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -22,7 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-keywords = ["rac", "rules-as-code", "tax", "benefits", "policy", "compiler", "javascript"]
+keywords = ["rulespec", "rules-as-code", "tax", "benefits", "policy", "compiler", "javascript"]
 dependencies = [
     "PyYAML>=6.0",
 ]
@@ -45,18 +45,18 @@ validation = [
 ]
 
 [project.scripts]
-rac-compile = "rac_compile.cli:main"
-rac-validate = "rac_compile.validation.cli:main"
+rulespec-compile = "rulespec_compile.cli:main"
+rulespec-validate = "rulespec_compile.validation.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/rac_compile"]
+packages = ["src/rulespec_compile"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "."]
 
 [tool.towncrier]
-package = "rac_compile"
+package = "rulespec_compile"
 package_dir = "src"
 directory = "changes"
 filename = "CHANGELOG.md"

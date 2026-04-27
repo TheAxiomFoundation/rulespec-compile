@@ -1,7 +1,7 @@
-"""Shared compile model for generic RAC compilation.
+"""Shared compile model for generic RuleSpec compilation.
 
 This module is the backend-neutral middle of the compiler. It takes the parsed
-``RacProgram`` graph (produced by :mod:`rac_compile.program`) and produces a
+``RuleSpecProgram`` graph (produced by :mod:`rulespec_compile.program`) and produces a
 ``LoweredProgram`` that the JavaScript, Python, and Rust generators (and the
 batch executor) can consume. It is intentionally large because it owns every
 step that is not parsing and not target-specific emission.
@@ -23,7 +23,7 @@ Logical phases (in roughly the order the code executes):
    ``LoweredProgram`` (top of file through ``LoweredProgram``).
 2. **Compile model** -- ``CompiledVariable`` and ``CompiledModule``, the main
    per-module compile entry point that orchestrates phases 3--6 against a
-   single ``RacFile`` (``CompiledVariable`` through the end of
+   single ``RuleSpecFile`` (``CompiledVariable`` through the end of
    ``CompiledModule``).
 3. **Render helpers** -- target-specific formula rendering wrappers
    (``_render_js_formula``, ``_render_python_formula``).
@@ -98,7 +98,7 @@ from .rule_bindings import RuleBinding, RuleBindingError, RuleResolver
 from .rust_generator import RustCodeGenerator
 
 if TYPE_CHECKING:
-    from .parser import RacFile, RuleDecl, VariableBlock
+    from .parser import RuleDecl, RuleSpecFile, VariableBlock
 
 
 # --- Phase 1: Parse / IR types ---
@@ -740,26 +740,26 @@ class CompiledModule:
     public_outputs: list[CompiledOutput] = field(default_factory=list)
 
     @classmethod
-    def from_rac_file(
+    def from_rulespec_file(
         cls,
-        rac_file: RacFile,
+        rulespec_file: RuleSpecFile,
         compile_context: CompileContext | None = None,
         selected_outputs: list[str] | None = None,
     ) -> "CompiledModule":
-        """Compile a parsed RAC file into a shared compile model."""
+        """Compile a parsed RuleSpec file into a shared compile model."""
         compile_context = compile_context or CompileContext()
-        rule_decls = rac_file.rule_decls
+        rule_decls = rulespec_file.rule_decls
         all_rule_names = [rule.name for rule in rule_decls]
-        external_rules = {rule.name: rule for rule in rac_file.external_rules}
-        declared_inputs = _build_declared_inputs(rac_file.input_rules)
-        computed_rule_names = {rule.name for rule in rac_file.computed_rules}
+        external_rules = {rule.name: rule for rule in rulespec_file.external_rules}
+        declared_inputs = _build_declared_inputs(rulespec_file.input_rules)
+        computed_rule_names = {rule.name for rule in rulespec_file.computed_rules}
         computed_variables = [
             variable
-            for variable in rac_file.variables
+            for variable in rulespec_file.variables
             if variable.name in computed_rule_names
         ]
         variable_names = [variable.name for variable in computed_variables]
-        variable_kind_hints = _build_variable_kind_hints(rac_file.variables)
+        variable_kind_hints = _build_variable_kind_hints(rulespec_file.variables)
         parameter_kind_hints = _build_parameter_kind_hints(
             external_rules,
             compile_context,
@@ -771,7 +771,7 @@ class CompiledModule:
             names = ", ".join(duplicate_names)
             raise CompilationError(f"Rules cannot share the same name: {names}.")
 
-        source_citation = rac_file.source.citation if rac_file.source else ""
+        source_citation = rulespec_file.source.citation if rulespec_file.source else ""
         if selected_outputs is None:
             compiled_variables = [
                 _compile_variable(
@@ -787,7 +787,7 @@ class CompiledModule:
             ]
         else:
             compiled_variables = _compile_reachable_variables(
-                rac_file=rac_file,
+                rulespec_file=rulespec_file,
                 compile_context=compile_context,
                 source_citation=source_citation,
                 selected_outputs=selected_outputs,
@@ -1833,7 +1833,7 @@ def _require_list(value: Any, subject: str) -> list[Any]:
 
 
 def _compile_reachable_variables(
-    rac_file: RacFile,
+    rulespec_file: RuleSpecFile,
     compile_context: CompileContext,
     source_citation: str,
     selected_outputs: list[str],
@@ -1841,11 +1841,11 @@ def _compile_reachable_variables(
     variable_kind_hints: dict[str, str],
 ) -> list[CompiledVariable]:
     """Compile only variables reachable from the requested outputs."""
-    external_rules = {rule.name: rule for rule in rac_file.external_rules}
-    computed_rule_names = {rule.name for rule in rac_file.computed_rules}
+    external_rules = {rule.name: rule for rule in rulespec_file.external_rules}
+    computed_rule_names = {rule.name for rule in rulespec_file.computed_rules}
     variables_by_name = {
         variable.name: variable
-        for variable in rac_file.variables
+        for variable in rulespec_file.variables
         if variable.name in computed_rule_names
     }
     unknown = [
@@ -2405,7 +2405,7 @@ def _resolve_temporal_entry(
 
 
 def _parse_from_date(value: str) -> date:
-    """Parse a RAC from-date string."""
+    """Parse a RuleSpec from-date string."""
     return date.fromisoformat(value)
 
 

@@ -4,7 +4,7 @@ CTC Calculator - Python reference implementation.
 Source: 26 USC 24
 Tax Year: 2025
 
-This matches the logic in examples/ctc.rac exactly.
+This matches the logic in examples/ctc.yaml exactly.
 """
 
 import math

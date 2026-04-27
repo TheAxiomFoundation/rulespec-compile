@@ -1,4 +1,4 @@
-"""Parser for RAC DSL files."""
+"""Parser for RuleSpec files."""
 
 import re
 import textwrap
@@ -20,7 +20,7 @@ from .rule_bindings import (
 
 
 class ParserError(ValueError):
-    """Raised when a RAC file cannot be parsed safely."""
+    """Raised when a RuleSpec file cannot be parsed safely."""
 
 
 @dataclass
@@ -184,8 +184,8 @@ class RuleDecl:
 
 
 @dataclass
-class RacFile:
-    """Parsed .rac file."""
+class RuleSpecFile:
+    """Parsed .yaml file."""
 
     source: Optional[SourceBlock] = None
     statute_text: Optional[str] = None
@@ -380,15 +380,15 @@ class RacFile:
     ):
         """Convert to the shared compile model for generic compilation."""
         from .compile_model import CompilationError, CompileContext, CompiledModule
-        from .program import load_rac_program
+        from .program import load_rulespec_program
 
         if self.imports or self.re_export_specs:
             if self.origin is None:
                 raise CompilationError(
-                    "This RAC file imports other files. Load it from disk with "
-                    "load_rac_program() or parse it with an origin path."
+                    "This RuleSpec file imports other files. Load it from disk with "
+                    "load_rulespec_program() or parse it with an origin path."
                 )
-            return load_rac_program(self.origin).to_compile_model(
+            return load_rulespec_program(self.origin).to_compile_model(
                 effective_date=effective_date,
                 rule_bindings=rule_bindings,
                 parameter_overrides=parameter_overrides,
@@ -397,7 +397,7 @@ class RacFile:
 
         selected_outputs, public_output_bindings = self.resolve_output_bindings(outputs)
         merged_rule_bindings = merge_rule_bindings(rule_bindings, parameter_overrides)
-        return CompiledModule.from_rac_file(
+        return CompiledModule.from_rulespec_file(
             self,
             compile_context=CompileContext(
                 effective_date=_normalize_effective_date(effective_date),
@@ -489,9 +489,9 @@ _DATE_SCALAR_PATTERN = re.compile(
 )
 
 
-def parse_rac(content: str, origin: Path | str | None = None) -> RacFile:
-    """Parse .rac file content into a RacFile."""
-    result = RacFile(origin=Path(origin).resolve() if origin is not None else None)
+def parse_rulespec(content: str, origin: Path | str | None = None) -> RuleSpecFile:
+    """Parse .yaml file content into a RuleSpecFile."""
+    result = RuleSpecFile(origin=Path(origin).resolve() if origin is not None else None)
 
     lines = content.split("\n")
     i = 0
@@ -538,7 +538,7 @@ def parse_rac(content: str, origin: Path | str | None = None) -> RacFile:
         ):
             raise ParserError(
                 "Legacy brace syntax is no longer supported. Rewrite this file "
-                "using .rac blocks such as 'source:' and 'name:'."
+                "using .yaml blocks such as 'source:' and 'name:'."
             )
 
         if stripped == "imports:":
@@ -635,7 +635,7 @@ def parse_rac(content: str, origin: Path | str | None = None) -> RacFile:
 
 
 def _derive_module_identity(origin: Path | None) -> str:
-    """Derive one rule/module identity from its canonical RAC path when present."""
+    """Derive one rule/module identity from its canonical RuleSpec path when present."""
     if origin is None:
         return ""
     resolved = origin.resolve()
@@ -990,7 +990,7 @@ def _parse_values_block(lines: list[str], start: int) -> tuple[int, dict[int, fl
 
 
 def _parse_default_value(value: str) -> Any:
-    """Parse one variable default value from inline RAC metadata."""
+    """Parse one variable default value from inline RuleSpec metadata."""
     normalized = value.strip()
     lowered = normalized.lower()
     if lowered == "true":

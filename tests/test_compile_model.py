@@ -5,10 +5,10 @@ from datetime import date
 
 import pytest
 
-from src.rac_compile.compile_model import CompilationError, LoweredProgram
-from src.rac_compile.parser import parse_rac
-from src.rac_compile.program import load_rac_program
-from src.rac_compile.rule_bindings import RuleBindingError
+from src.rulespec_compile.compile_model import CompilationError, LoweredProgram
+from src.rulespec_compile.parser import parse_rulespec
+from src.rulespec_compile.program import load_rulespec_program
+from src.rulespec_compile.rule_bindings import RuleBindingError
 
 
 class TestCompiledModule:
@@ -16,7 +16,7 @@ class TestCompiledModule:
 
     def test_extracts_inputs_from_formula_references(self):
         """Free references become explicit calculator inputs."""
-        rac = """
+        rulespec = """
 rate:
   source: "Test"
   from 2024-01-01: 0.2
@@ -29,7 +29,7 @@ tax:
     base_income = wages + tips
     return round(base_income * rate)
 """
-        module = parse_rac(rac).to_compile_model()
+        module = parse_rulespec(rulespec).to_compile_model()
 
         assert [compiled_input.name for compiled_input in module.inputs] == [
             "wages",
@@ -40,7 +40,7 @@ tax:
 
     def test_no_formula_variables_become_declared_inputs(self):
         """No-formula rules participate as typed inputs instead of computations."""
-        rac = """
+        rulespec = """
 is_us_citizen_national_or_resident:
   entity: Person
   period: Year
@@ -54,8 +54,8 @@ ctc_meets_citizenship_requirement:
   from 1998-01-01:
     is_us_citizen_national_or_resident
 """
-        module = parse_rac(rac).to_compile_model()
-        lowered = parse_rac(rac).to_lowered_program()
+        module = parse_rulespec(rulespec).to_compile_model()
+        lowered = parse_rulespec(rulespec).to_lowered_program()
 
         assert [compiled_input.name for compiled_input in module.inputs] == [
             "is_us_citizen_national_or_resident"
@@ -74,7 +74,7 @@ ctc_meets_citizenship_requirement:
 
     def test_imported_declared_inputs_lower_with_qualified_public_names(self, tmp_path):
         """Imported free inputs keep rule-identity public names in lowered bundles."""
-        shared = tmp_path / "statute" / "shared" / "rate.rac"
+        shared = tmp_path / "statute" / "shared" / "rate.yaml"
         shared.parent.mkdir(parents=True)
         shared.write_text(
             """
@@ -91,7 +91,7 @@ taxable_amount:
     wages * 2
 """
         )
-        entry = tmp_path / "statute" / "shared" / "benefit.rac"
+        entry = tmp_path / "statute" / "shared" / "benefit.yaml"
         entry.write_text(
             """
 imports:
@@ -106,7 +106,7 @@ benefit:
 """
         )
 
-        lowered = load_rac_program(entry).to_lowered_program()
+        lowered = load_rulespec_program(entry).to_lowered_program()
 
         assert {
             compiled_input.public_name or compiled_input.name
@@ -118,7 +118,7 @@ benefit:
 
     def test_no_formula_variables_without_explicit_defaults_use_typed_fallbacks(self):
         """Declared inputs without defaults fall back from dtype, not heuristics."""
-        rac = """
+        rulespec = """
 full_time_student_months:
   entity: Person
   period: Year
@@ -131,7 +131,7 @@ is_full_time_student:
   from 2002-01-01:
     full_time_student_months >= 5
 """
-        module = parse_rac(rac).to_compile_model()
+        module = parse_rulespec(rulespec).to_compile_model()
 
         assert [compiled_input.name for compiled_input in module.inputs] == [
             "full_time_student_months"
@@ -141,7 +141,7 @@ is_full_time_student:
 
     def test_scalar_external_rule_with_metadata_compiles_as_parameter(self):
         """Entity-less scalar rules with metadata stay external values, not inputs."""
-        rac = """
+        rulespec = """
 phase_in_rate:
   dtype: Rate
   unit: rate
@@ -155,7 +155,7 @@ benefit_amount:
   from 2024-01-01:
     wages * phase_in_rate
 """
-        module = parse_rac(rac).to_compile_model()
+        module = parse_rulespec(rulespec).to_compile_model()
 
         assert [compiled_input.name for compiled_input in module.inputs] == ["wages"]
         assert [parameter.name for parameter in module.parameters] == ["phase_in_rate"]
@@ -163,7 +163,7 @@ benefit_amount:
 
     def test_scalar_computed_rule_without_entity_compiles_as_output(self):
         """Entity-less computed live-style rules compile as computed outputs."""
-        rac = """
+        rulespec = """
 snap_self_employment_cost_exclusion:
   label: "SNAP self-employment cost exclusion"
   description: "Reduction for production costs"
@@ -173,7 +173,7 @@ snap_self_employment_cost_exclusion:
       snap_nonfarm_self_employment_gross_income,
     ) + snap_farm_self_employment_production_costs
 """
-        lowered = parse_rac(rac).to_lowered_program()
+        lowered = parse_rulespec(rulespec).to_lowered_program()
 
         assert [compiled_input.name for compiled_input in lowered.inputs] == [
             "snap_nonfarm_self_employment_production_costs",
@@ -186,7 +186,7 @@ snap_self_employment_cost_exclusion:
 
     def test_lowered_program_round_trips_and_generates_python(self):
         """Compiled modules can emit and reload a lowered JSON bundle."""
-        rac = """
+        rulespec = """
 rate:
   source: "Test"
   from 2024-01-01: 0.2
@@ -199,7 +199,7 @@ tax:
     taxable_income = wages - deduction
     return taxable_income * rate
 """
-        lowered = parse_rac(rac).to_lowered_program(outputs=["tax"])
+        lowered = parse_rulespec(rulespec).to_lowered_program(outputs=["tax"])
         payload = json.loads(lowered.to_json())
         namespace = {}
 
@@ -213,7 +213,7 @@ tax:
 
     def test_lowered_program_emits_typed_computations_and_outputs(self):
         """Lowered bundles expose explicit value kinds for computations/outputs."""
-        rac = """
+        rulespec = """
 flag:
   entity: Person
   period: Year
@@ -221,7 +221,7 @@ flag:
   from 2024-01-01:
     return wages <= 1000
 """
-        payload = json.loads(parse_rac(rac).to_lowered_program().to_json())
+        payload = json.loads(parse_rulespec(rulespec).to_lowered_program().to_json())
 
         assert payload["computations"][0]["value_kind"] == "boolean"
         assert payload["computations"][0]["local_value_kinds"] == {}
@@ -231,8 +231,8 @@ flag:
         self, tmp_path
     ):
         """File-backed lowered bundles preserve the leaf rule identity."""
-        origin = tmp_path / "benefit_amount.rac"
-        lowered = parse_rac(
+        origin = tmp_path / "benefit_amount.yaml"
+        lowered = parse_rulespec(
             """
 rate:
   source: "Test"
@@ -255,7 +255,7 @@ tax:
 
     def test_lowered_program_emits_typed_parameters(self):
         """Lowered bundles expose explicit value kinds for resolved parameters."""
-        rac = """
+        rulespec = """
 allowance:
   source: "Test"
   from 2024-01-01: 2
@@ -267,7 +267,7 @@ count:
   from 2024-01-01:
     return n_children + allowance
 """
-        payload = json.loads(parse_rac(rac).to_lowered_program().to_json())
+        payload = json.loads(parse_rulespec(rulespec).to_lowered_program().to_json())
 
         assert payload["parameters"][0]["value_kind"] == "integer"
         assert payload["parameters"][0]["lookup_kind"] == "scalar"
@@ -275,7 +275,7 @@ count:
 
     def test_lowered_program_emits_indexed_parameter_contracts(self):
         """Lowered bundles expose explicit lookup contracts for indexed parameters."""
-        rac = """
+        rulespec = """
 allowances:
   source: "external/allowances"
 
@@ -287,7 +287,7 @@ count:
     return allowances[n_children]
 """
         payload = json.loads(
-            parse_rac(rac)
+            parse_rulespec(rulespec)
             .to_lowered_program(parameter_overrides={"allowances": [1, 2]})
             .to_json()
         )
@@ -297,7 +297,7 @@ count:
 
     def test_lowered_program_emits_typed_local_slots(self):
         """Lowered bundles expose stable local slot kinds inside computations."""
-        rac = """
+        rulespec = """
 flag:
   entity: Person
   period: Year
@@ -306,7 +306,7 @@ flag:
     eligible = wages <= 1000
     return eligible
 """
-        payload = json.loads(parse_rac(rac).to_lowered_program().to_json())
+        payload = json.loads(parse_rulespec(rulespec).to_lowered_program().to_json())
 
         assert payload["computations"][0]["local_value_kinds"] == {
             "eligible": "boolean"
@@ -613,7 +613,7 @@ flag:
 
     def test_incompatible_branch_local_kinds_fail_loudly(self):
         """Locals assigned incompatible kinds across branches are unsupported."""
-        rac = """
+        rulespec = """
 result:
   entity: Person
   period: Year
@@ -628,7 +628,7 @@ result:
             CompilationError,
             match="Local 'tmp' is assigned incompatible value kinds",
         ):
-            parse_rac(rac).to_compile_model()
+            parse_rulespec(rulespec).to_compile_model()
 
     def test_lowered_program_rejects_malformed_nested_json(self):
         """Malformed lowered bundles fail with CompilationError, not AttributeError."""
@@ -684,7 +684,7 @@ result:
 
     def test_source_only_parameter_requires_binding(self):
         """Source-only referenced parameters fail without explicit bindings."""
-        rac = """
+        rulespec = """
 rate:
   source: "external/rate"
 
@@ -696,11 +696,11 @@ tax:
     return wages * rate
 """
         with pytest.raises(CompilationError, match="Supply a rule binding"):
-            parse_rac(rac).to_compile_model()
+            parse_rulespec(rulespec).to_compile_model()
 
     def test_unused_source_only_parameter_does_not_fail_compile(self):
         """Unused source-only parameters stay lazy until something references them."""
-        rac = """
+        rulespec = """
 rate:
   source: "external/rate"
 
@@ -711,14 +711,14 @@ tax:
   from 2024-01-01:
     return wages * 0.1
 """
-        module = parse_rac(rac).to_compile_model()
+        module = parse_rulespec(rulespec).to_compile_model()
 
         assert [parameter.name for parameter in module.parameters] == []
         assert [variable.name for variable in module.variables] == ["tax"]
 
     def test_source_only_parameter_uses_explicit_binding(self):
         """Source-only referenced parameters compile with bound values."""
-        rac = """
+        rulespec = """
 rate:
   source: "external/rate"
 
@@ -731,7 +731,7 @@ tax:
 """
         namespace = {}
         code = (
-            parse_rac(rac)
+            parse_rulespec(rulespec)
             .to_python_generator(parameter_overrides={"rate": 0.25})
             .generate()
         )
@@ -742,8 +742,8 @@ tax:
 
     def test_source_only_parameter_accepts_qualified_binding_name(self, tmp_path):
         """Single-file source-only params can bind through module_identity.symbol."""
-        origin = tmp_path / "benefit_amount.rac"
-        rac = """
+        origin = tmp_path / "benefit_amount.yaml"
+        rulespec = """
 rate:
   source: "external/rate"
 
@@ -756,7 +756,7 @@ tax:
 """
         namespace = {}
         code = (
-            parse_rac(rac, origin=origin)
+            parse_rulespec(rulespec, origin=origin)
             .to_python_generator(parameter_overrides={"benefit_amount.rate": 0.25})
             .generate()
         )
@@ -767,7 +767,7 @@ tax:
 
     def test_source_only_parameter_accepts_effective_dated_rule_bindings(self):
         """Structured rule bindings resolve by compile effective date."""
-        rac = """
+        rulespec = """
 rate:
   source: "external/rate"
 
@@ -780,7 +780,7 @@ tax:
 """
         namespace = {}
         code = (
-            parse_rac(rac)
+            parse_rulespec(rulespec)
             .to_python_generator(
                 effective_date=date(2025, 1, 1),
                 rule_bindings={
@@ -809,7 +809,7 @@ tax:
         self,
     ):
         """Date-specific rule bindings require an explicit compile date."""
-        rac = """
+        rulespec = """
 rate:
   source: "external/rate"
 
@@ -824,7 +824,7 @@ tax:
             RuleBindingError,
             match="has only effective-dated bindings",
         ):
-            parse_rac(rac).to_compile_model(
+            parse_rulespec(rulespec).to_compile_model(
                 rule_bindings={
                     "bindings": [
                         {
@@ -838,7 +838,7 @@ tax:
 
     def test_scalar_parameter_reference_rejects_indexed_values(self):
         """Bare parameter references fail when the resolved parameter is indexed."""
-        rac = """
+        rulespec = """
 allowances:
   source: "external/allowances"
 
@@ -853,11 +853,13 @@ count:
             CompilationError,
             match="used as a scalar value but resolves to indexed entries",
         ):
-            parse_rac(rac).to_compile_model(parameter_overrides={"allowances": [1, 2]})
+            parse_rulespec(rulespec).to_compile_model(
+                parameter_overrides={"allowances": [1, 2]}
+            )
 
     def test_parameter_cannot_be_used_as_scalar_and_indexed(self):
         """Parameters must not mix scalar and indexed access patterns."""
-        rac = """
+        rulespec = """
 rates:
   source: "external/rates"
 
@@ -873,11 +875,13 @@ tax:
             CompilationError,
             match="used both as a scalar value and an indexed lookup",
         ):
-            parse_rac(rac).to_compile_model(parameter_overrides={"rates": [1, 2]})
+            parse_rulespec(rulespec).to_compile_model(
+                parameter_overrides={"rates": [1, 2]}
+            )
 
     def test_structured_parameter_binding_carries_bundle_source(self):
         """Structured bindings surface bundle source metadata in generated output."""
-        rac = """
+        rulespec = """
 rate:
   source: "external/rate"
 
@@ -889,7 +893,7 @@ tax:
     return wages * rate
 """
         code = (
-            parse_rac(rac)
+            parse_rulespec(rulespec)
             .to_python_generator(
                 parameter_overrides={
                     "rate": {"value": 0.25, "source": "bundle://ty2025"}
@@ -901,8 +905,8 @@ tax:
         assert "external/rate [bound from bundle://ty2025]" in code
 
     def test_python_compile_executes_multiline_formulas(self):
-        """Parsed RAC formulas compile to executable Python."""
-        rac = """
+        """Parsed RuleSpec formulas compile to executable Python."""
+        rulespec = """
 rate:
   source: "Test"
   from 2024-01-01: 0.2
@@ -916,7 +920,7 @@ tax:
     applied_rate = is_joint ? rate / 2 : rate
     return round(taxable_income * applied_rate)
 """
-        generator = parse_rac(rac).to_python_generator()
+        generator = parse_rulespec(rulespec).to_python_generator()
         code = generator.generate()
         namespace = {}
 
@@ -927,7 +931,7 @@ tax:
 
     def test_expression_ir_handles_boolean_ternary_and_indexed_parameters(self):
         """Generic compile supports the validated scalar expression subset."""
-        rac = """
+        rulespec = """
 rates:
   source: "external/rates"
 
@@ -944,13 +948,13 @@ tax:
     return !(wages <= threshold) && is_eligible ? round(wages * rates[rate_index]) : 0
 """
         js_code = (
-            parse_rac(rac)
+            parse_rulespec(rulespec)
             .to_js_generator(parameter_overrides={"rates": [0.1, 0.2]})
             .generate()
         )
         namespace = {}
         py_code = (
-            parse_rac(rac)
+            parse_rulespec(rulespec)
             .to_python_generator(parameter_overrides={"rates": [0.1, 0.2]})
             .generate()
         )
@@ -977,7 +981,7 @@ tax:
 
     def test_simple_comparison_expression_compiles_to_python(self):
         """Direct comparison expressions stay scalar expressions in Python output."""
-        rac = """
+        rulespec = """
 threshold:
   source: "Test"
   from 2024-01-01: 1000
@@ -990,7 +994,7 @@ flag:
     return wages <= threshold
 """
         namespace = {}
-        py_code = parse_rac(rac).to_python_generator().generate()
+        py_code = parse_rulespec(rulespec).to_python_generator().generate()
 
         exec(py_code, namespace)
 
@@ -999,7 +1003,7 @@ flag:
 
     def test_terminal_bare_expression_compiles_as_return(self):
         """A final bare expression compiles as an implicit return."""
-        rac = """
+        rulespec = """
 result:
   entity: Person
   period: Year
@@ -1009,7 +1013,7 @@ result:
     tmp
 """
         namespace = {}
-        py_code = parse_rac(rac).to_python_generator().generate()
+        py_code = parse_rulespec(rulespec).to_python_generator().generate()
 
         exec(py_code, namespace)
 
@@ -1017,7 +1021,7 @@ result:
 
     def test_supports_if_else_blocks_with_branch_local_assignments(self):
         """Generic compile supports limited if/else blocks with shared locals."""
-        rac = """
+        rulespec = """
 tax:
   entity: Person
   period: Year
@@ -1029,7 +1033,7 @@ tax:
       rate = 0.2
     return wages * rate
 """
-        module = parse_rac(rac).to_compile_model()
+        module = parse_rulespec(rulespec).to_compile_model()
         js_code = module.to_js_generator().generate()
         namespace = {}
 
@@ -1042,7 +1046,7 @@ tax:
 
     def test_select_outputs_prunes_to_reachable_subgraph(self):
         """Selected outputs keep only reachable variables, params, and inputs."""
-        rac = """
+        rulespec = """
 rate:
   source: "Test"
   from 2024-01-01: 0.1
@@ -1072,7 +1076,7 @@ bonus:
   from 2024-01-01:
     return wages * bonus_rate
 """
-        module = parse_rac(rac).to_compile_model(outputs=["tax"])
+        module = parse_rulespec(rulespec).to_compile_model(outputs=["tax"])
 
         assert module.outputs == ["tax"]
         assert [variable.name for variable in module.variables] == [
@@ -1087,7 +1091,7 @@ bonus:
 
     def test_select_outputs_ignores_unreachable_unsupported_variables(self):
         """Selected-output compile only validates the reachable variable subgraph."""
-        rac = """
+        rulespec = """
 tax:
   entity: Person
   period: Year
@@ -1104,7 +1108,9 @@ bonus:
       return wages
 """
         namespace = {}
-        py_code = parse_rac(rac).to_python_generator(outputs=["tax"]).generate()
+        py_code = (
+            parse_rulespec(rulespec).to_python_generator(outputs=["tax"]).generate()
+        )
 
         exec(py_code, namespace)
 
@@ -1112,7 +1118,7 @@ bonus:
 
     def test_selected_outputs_only_return_requested_values(self):
         """Selected outputs stay internal unless explicitly requested."""
-        rac = """
+        rulespec = """
 rate:
   source: "Test"
   from 2024-01-01: 0.1
@@ -1132,7 +1138,7 @@ tax:
     return taxable_income * rate
 """
         namespace = {}
-        code = parse_rac(rac).to_python_generator(outputs=["tax"]).generate()
+        code = parse_rulespec(rulespec).to_python_generator(outputs=["tax"]).generate()
 
         exec(code, namespace)
 
@@ -1142,7 +1148,7 @@ tax:
 
     def test_export_aliases_define_public_outputs_for_single_file_compile(self):
         """Single-file compile exposes exported output aliases in the result shape."""
-        rac = """
+        rulespec = """
 export tax as benefit_amount
 
 tax:
@@ -1153,7 +1159,7 @@ tax:
     return wages * 0.1
 """
         namespace = {}
-        py_code = parse_rac(rac).to_python_generator().generate()
+        py_code = parse_rulespec(rulespec).to_python_generator().generate()
 
         exec(py_code, namespace)
 
@@ -1163,7 +1169,7 @@ tax:
 
     def test_export_aliases_restrict_selected_outputs_to_public_names(self):
         """Explicit exports make selected-output compile use the public interface."""
-        rac = """
+        rulespec = """
 export tax as benefit_amount
 
 tax:
@@ -1177,11 +1183,11 @@ tax:
             CompilationError,
             match="Unknown exported output variable\\(s\\): tax",
         ):
-            parse_rac(rac).to_compile_model(outputs=["tax"])
+            parse_rulespec(rulespec).to_compile_model(outputs=["tax"])
 
     def test_invalid_export_name_fails_even_when_other_exports_are_valid(self):
         """Mixed valid/invalid exports still fail loudly instead of dropping one."""
-        rac = """
+        rulespec = """
 export tax, missing_output
 
 tax:
@@ -1195,11 +1201,11 @@ tax:
             CompilationError,
             match="File exports unknown symbol 'missing_output'",
         ):
-            parse_rac(rac).to_compile_model()
+            parse_rulespec(rulespec).to_compile_model()
 
     def test_unknown_selected_output_fails_loudly(self):
         """Selecting a missing output variable raises a user-facing error."""
-        rac = """
+        rulespec = """
 tax:
   entity: Person
   period: Year
@@ -1208,11 +1214,11 @@ tax:
     return wages * 0.1
 """
         with pytest.raises(CompilationError, match="Unknown output variable"):
-            parse_rac(rac).to_compile_model(outputs=["bonus"])
+            parse_rulespec(rulespec).to_compile_model(outputs=["bonus"])
 
     def test_reorders_variables_by_dependency(self):
         """Variables can depend on earlier-or-later parsed variables."""
-        rac = """
+        rulespec = """
 rate:
   source: "Test"
   from 2024-01-01: 0.1
@@ -1231,7 +1237,7 @@ taxable_income:
   from 2024-01-01:
     return wages - deduction
 """
-        code = parse_rac(rac).to_python_generator().generate()
+        code = parse_rulespec(rulespec).to_python_generator().generate()
         namespace = {}
 
         exec(code, namespace)
@@ -1242,7 +1248,7 @@ taxable_income:
 
     def test_rejects_multiple_temporal_parameter_values(self):
         """Generic compile fails loudly on unsupported temporal parameters."""
-        rac = """
+        rulespec = """
 rate:
   source: "Test"
   from 2024-01-01: 0.2
@@ -1256,11 +1262,11 @@ tax:
     return wages * rate
 """
         with pytest.raises(CompilationError, match="Pass an effective date"):
-            parse_rac(rac).to_compile_model()
+            parse_rulespec(rulespec).to_compile_model()
 
     def test_resolves_temporal_parameter_by_effective_date(self):
         """Temporal parameters resolve to the active entry for a compile date."""
-        rac = """
+        rulespec = """
 rate:
   source: "Test"
   from 2024-01-01: 0.2
@@ -1275,7 +1281,9 @@ tax:
 """
         namespace = {}
         code = (
-            parse_rac(rac).to_python_generator(effective_date="2025-06-01").generate()
+            parse_rulespec(rulespec)
+            .to_python_generator(effective_date="2025-06-01")
+            .generate()
         )
 
         exec(code, namespace)
@@ -1284,7 +1292,7 @@ tax:
 
     def test_resolves_temporal_variable_formula_by_effective_date(self):
         """Temporal variable formulas resolve against the compile date."""
-        rac = """
+        rulespec = """
 tax:
   entity: Person
   period: Year
@@ -1296,7 +1304,9 @@ tax:
 """
         namespace = {}
         code = (
-            parse_rac(rac).to_python_generator(effective_date="2024-06-01").generate()
+            parse_rulespec(rulespec)
+            .to_python_generator(effective_date="2024-06-01")
+            .generate()
         )
 
         exec(code, namespace)
@@ -1305,7 +1315,7 @@ tax:
 
     def test_errors_when_effective_date_precedes_temporal_entries(self):
         """Temporal compile fails when no entry is active yet."""
-        rac = """
+        rulespec = """
 tax:
   entity: Person
   period: Year
@@ -1316,11 +1326,11 @@ tax:
     return wages * 0.2
 """
         with pytest.raises(CompilationError, match="has no temporal entry active"):
-            parse_rac(rac).to_compile_model(effective_date="2023-01-01")
+            parse_rulespec(rulespec).to_compile_model(effective_date="2023-01-01")
 
     def test_rejects_unsupported_function_calls(self):
         """Generic compile fails loudly on unknown helper calls."""
-        rac = """
+        rulespec = """
 tax:
   entity: Person
   period: Year
@@ -1332,11 +1342,11 @@ tax:
             CompilationError,
             match="calls unsupported function 'custom_credit'",
         ):
-            parse_rac(rac).to_compile_model()
+            parse_rulespec(rulespec).to_compile_model()
 
     def test_rejects_attribute_access(self):
         """Generic compile fails loudly on attribute access."""
-        rac = """
+        rulespec = """
 tax:
   entity: Person
   period: Year
@@ -1348,11 +1358,11 @@ tax:
             CompilationError,
             match="Attribute access is not supported",
         ):
-            parse_rac(rac).to_compile_model()
+            parse_rulespec(rulespec).to_compile_model()
 
     def test_rejects_missing_return_path(self):
         """Generic compile rejects formulas that do not return on all paths."""
-        rac = """
+        rulespec = """
 tax:
   entity: Person
   period: Year
@@ -1365,11 +1375,11 @@ tax:
             CompilationError,
             match="does not return a value on all reachable paths",
         ):
-            parse_rac(rac).to_compile_model()
+            parse_rulespec(rulespec).to_compile_model()
 
     def test_rejects_unsupported_loop_statements(self):
         """Generic compile still fails loudly on unsupported loop control flow."""
-        rac = """
+        rulespec = """
 tax:
   entity: Person
   period: Year
@@ -1382,4 +1392,4 @@ tax:
             CompilationError,
             match="unsupported statement 'while'",
         ):
-            parse_rac(rac).to_compile_model()
+            parse_rulespec(rulespec).to_compile_model()

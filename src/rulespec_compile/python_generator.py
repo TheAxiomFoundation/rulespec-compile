@@ -1,5 +1,5 @@
 """
-Python code generation from RAC DSL.
+Python code generation from RuleSpec.
 
 Generates standalone Python calculators that can be imported
 and used in Python applications without any dependencies.
@@ -45,7 +45,7 @@ class Output:
 
 class PythonCodeGenerator:
     """
-    Generate standalone Python calculators from RAC DSL.
+    Generate standalone Python calculators from RuleSpec.
 
     Usage:
         gen = PythonCodeGenerator()
@@ -129,7 +129,7 @@ class PythonCodeGenerator:
 
         # Header with provenance
         lines.append('"""')
-        lines.append(f"{self.module_name} - Auto-generated from RAC DSL")
+        lines.append(f"{self.module_name} - Auto-generated from RuleSpec")
         lines.append("")
         lines.append("This code runs standalone with full citation chain -")
         lines.append("every value traces back to authoritative law.")

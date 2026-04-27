@@ -1,4 +1,4 @@
-"""Validated expression IR for the generic RAC compile subset."""
+"""Validated expression IR for the generic RuleSpec compile subset."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 
 class ExpressionParseError(ValueError):
-    """Raised when a RAC expression cannot be compiled safely."""
+    """Raised when a RuleSpec expression cannot be compiled safely."""
 
 
 SUPPORTED_FUNCTIONS = {"abs", "ceil", "floor", "max", "min", "round"}
@@ -130,7 +130,7 @@ Statement = AssignStmt | ReturnStmt | IfStmt
 
 
 def parse_expression(expression: str, variable_name: str) -> Expression:
-    """Parse a RAC expression into validated IR."""
+    """Parse a RuleSpec expression into validated IR."""
     normalized = _normalize_expression(expression)
     try:
         parsed = ast.parse(normalized, mode="eval")
@@ -282,7 +282,7 @@ def render_expression_python(expression: Expression, parameter_names: set[str]) 
 
 
 def parse_formula_statements(formula: str, variable_name: str) -> tuple[Statement, ...]:
-    """Parse a RAC formula block into validated statements."""
+    """Parse a RuleSpec formula block into validated statements."""
     normalized = _normalize_formula_block(formula)
     try:
         module = ast.parse(normalized, mode="exec")
@@ -863,7 +863,7 @@ def _wrap(rendered: str, precedence: int, parent_prec: int) -> str:
 
 
 def _normalize_formula_block(formula: str) -> str:
-    """Normalize a RAC formula block into Python-like source for AST parsing."""
+    """Normalize a RuleSpec formula block into Python-like source for AST parsing."""
     normalized_lines: list[str] = []
     stripped_lines = [
         _strip_formula_comment(raw_line) for raw_line in formula.splitlines()
@@ -882,7 +882,7 @@ def _normalize_formula_block(formula: str) -> str:
 
 
 def _normalize_statement_line(line: str) -> str:
-    """Normalize a single RAC statement line."""
+    """Normalize a single RuleSpec statement line."""
     stripped = line.strip()
     if stripped.startswith("let "):
         stripped = stripped[len("let ") :].strip()
@@ -910,13 +910,13 @@ def _normalize_statement_line(line: str) -> str:
 
 
 def _normalize_expression(expression: str) -> str:
-    """Convert RAC expression syntax into parseable Python syntax."""
+    """Convert RuleSpec expression syntax into parseable Python syntax."""
     stripped = expression.strip()
     return _rewrite_js_tokens(_convert_ternary(_convert_inline_if_expression(stripped)))
 
 
 def _collapse_inline_if_formula_lines(lines: list[str]) -> list[str]:
-    """Collapse chained inline RAC conditionals into one expression line."""
+    """Collapse chained inline RuleSpec conditionals into one expression line."""
     collapsed: list[str] = []
     index = 0
     while index < len(lines):
@@ -1016,7 +1016,7 @@ def _collapse_expression_continuation_lines(lines: list[str]) -> list[str]:
 
 
 def _inline_if_expects_continuation(expression: str) -> bool:
-    """Return whether an inline RAC conditional still needs its else branch."""
+    """Return whether an inline RuleSpec conditional still needs its else branch."""
     return expression.strip().startswith("if ") and expression.rstrip().endswith(
         "else:"
     )
@@ -1043,7 +1043,7 @@ def _split_inline_if_statement(expression: str) -> tuple[str, str] | None:
 
 
 def _is_inline_if_expression(expression: str) -> bool:
-    """Return whether a line uses inline RAC conditional expression syntax."""
+    """Return whether a line uses inline RuleSpec conditional expression syntax."""
     stripped = expression.strip()
     if not stripped.startswith("if "):
         return False
@@ -1060,7 +1060,7 @@ def _is_inline_if_expression(expression: str) -> bool:
 
 
 def _convert_inline_if_expression(expression: str) -> str:
-    """Convert `if cond: a else: b` RAC syntax into Python ternary syntax."""
+    """Convert `if cond: a else: b` RuleSpec syntax into Python ternary syntax."""
     stripped = expression.strip()
     if not _is_inline_if_expression(stripped):
         return expression
@@ -1234,7 +1234,7 @@ def _find_top_level_colon(expression: str, start_index: int = 0) -> int:
 
 
 def _find_top_level_else_marker(expression: str, start_index: int = 0) -> int:
-    """Find a top-level `else:` marker in an inline RAC conditional."""
+    """Find a top-level `else:` marker in an inline RuleSpec conditional."""
     depth = 0
     index = start_index
     while index < len(expression):
@@ -1292,7 +1292,7 @@ def _attribute_to_name(node: ast.Attribute, original: str, variable_name: str) -
 
 
 def _strip_formula_comment(line: str) -> str:
-    """Remove trailing RAC comments from one formula line."""
+    """Remove trailing RuleSpec comments from one formula line."""
     in_single = False
     in_double = False
     for index, char in enumerate(line):

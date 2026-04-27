@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.rac_compile.cli import main
-from src.rac_compile.harness import HarnessResult, HarnessSummary
+from src.rulespec_compile.cli import main
+from src.rulespec_compile.harness import HarnessResult, HarnessSummary
 
 
 class TestCLIMainCompile:
@@ -19,15 +19,15 @@ class TestCLIMainCompile:
 
     def test_compile_file_not_found(self, tmp_path):
         """Compile with non-existent file prints error and exits 1."""
-        fake_input = str(tmp_path / "nonexistent.rac")
-        with patch("sys.argv", ["rac-compile", "compile", fake_input]):
+        fake_input = str(tmp_path / "nonexistent.yaml")
+        with patch("sys.argv", ["rulespec-compile", "compile", fake_input]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
             assert exc_info.value.code == 1
 
     def test_compile_to_stdout(self, tmp_path):
         """Compile with no -o prints JS to stdout."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 x:
@@ -38,7 +38,7 @@ x:
     return 42
 """
         )
-        with patch("sys.argv", ["rac-compile", "compile", str(input_file)]):
+        with patch("sys.argv", ["rulespec-compile", "compile", str(input_file)]):
             # Should not raise, just prints to stdout
             with patch("builtins.print") as mock_print:
                 main()
@@ -48,7 +48,7 @@ x:
 
     def test_compile_to_file(self, tmp_path):
         """Compile with -o writes JS to file."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 x:
@@ -62,7 +62,7 @@ x:
         output_file = tmp_path / "output.js"
         with patch(
             "sys.argv",
-            ["rac-compile", "compile", str(input_file), "-o", str(output_file)],
+            ["rulespec-compile", "compile", str(input_file), "-o", str(output_file)],
         ):
             main()
             assert output_file.exists()
@@ -71,7 +71,7 @@ x:
 
     def test_compile_python_to_stdout(self, tmp_path):
         """Compile --python prints Python to stdout."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 rate:
@@ -88,7 +88,7 @@ tax:
         )
         with patch(
             "sys.argv",
-            ["rac-compile", "compile", str(input_file), "--python"],
+            ["rulespec-compile", "compile", str(input_file), "--python"],
         ):
             with patch("builtins.print") as mock_print:
                 main()
@@ -97,7 +97,7 @@ tax:
 
     def test_compile_rust_to_stdout(self, tmp_path):
         """Compile --rust prints Rust to stdout."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 rate:
@@ -114,7 +114,7 @@ tax:
         )
         with patch(
             "sys.argv",
-            ["rac-compile", "compile", str(input_file), "--rust"],
+            ["rulespec-compile", "compile", str(input_file), "--rust"],
         ):
             with patch("builtins.print") as mock_print:
                 main()
@@ -122,8 +122,8 @@ tax:
                 assert "pub fn calculate" in output
 
     def test_compile_effective_date_resolves_temporal_entries(self, tmp_path):
-        """Compile can resolve temporal RAC definitions with --effective-date."""
-        input_file = tmp_path / "test.rac"
+        """Compile can resolve temporal RuleSpec definitions with --effective-date."""
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 rate:
@@ -142,7 +142,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -157,7 +157,7 @@ tax:
 
     def test_compile_parameter_binding_supplies_source_only_parameter(self, tmp_path):
         """Compile can bind source-only parameters from the CLI."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 rate:
@@ -174,7 +174,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -189,7 +189,7 @@ tax:
 
     def test_compile_binding_supplies_source_only_external_rule(self, tmp_path):
         """Compile accepts the rule-oriented --binding flag."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 rate:
@@ -206,7 +206,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -221,7 +221,7 @@ tax:
 
     def test_compile_parameter_file_supplies_source_only_parameter(self, tmp_path):
         """Compile can bind source-only parameters from a JSON file."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         parameter_file = tmp_path / "bindings.json"
         input_file.write_text(
             """
@@ -240,7 +240,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -255,7 +255,7 @@ tax:
 
     def test_compile_binding_file_supports_structured_rule_bundle(self, tmp_path):
         """Compile accepts the structured --binding-file bundle format."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         binding_file = tmp_path / "bindings.json"
         input_file.write_text(
             """
@@ -286,7 +286,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -301,11 +301,11 @@ tax:
                 output = mock_print.call_args_list[0][0][0]
                 assert "0.45" in output
 
-    def test_compile_binding_file_supports_rac_override_yaml(self, tmp_path):
-        """Compile can load RAC-side override YAML artifacts through --binding-file."""
+    def test_compile_binding_file_supports_rulespec_override_yaml(self, tmp_path):
+        """Compile can load RuleSpec override YAML through --binding-file."""
         base_amounts = tmp_path / "statute" / "26" / "32" / "b" / "2" / "A"
         base_amounts.mkdir(parents=True)
-        input_file = base_amounts / "base_amounts.rac"
+        input_file = base_amounts / "base_amounts.yaml"
         binding_file = tmp_path / "eitc-2024.yaml"
         input_file.write_text(
             """
@@ -316,10 +316,10 @@ number_of_qualifying_children:
   default: 0
 
 earned_income_amount:
-  source: "external/rac-us"
+  source: "external/rules-us"
 
 phaseout_amount:
-  source: "external/rac-us"
+  source: "external/rules-us"
 
 eitc_pair_total:
   entity: TaxUnit
@@ -356,7 +356,7 @@ phaseout_amount:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -374,7 +374,7 @@ phaseout_amount:
 
     def test_compile_repeated_binding_files_merge(self, tmp_path):
         """Repeated binding files merge into one external-rule resolver."""
-        input_file = tmp_path / "tax.rac"
+        input_file = tmp_path / "tax.yaml"
         scalar_bundle = tmp_path / "scalar.json"
         artifact_bundle = tmp_path / "artifact.yaml"
         input_file.write_text(
@@ -408,7 +408,7 @@ allowance:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -430,16 +430,16 @@ allowance:
         self, tmp_path
     ):
         """CLI bindings can target imported source-only params by module identity."""
-        (tmp_path / "shared.rac").write_text(
+        (tmp_path / "shared.yaml").write_text(
             """
 rate:
   source: "external/rate"
 """
         )
-        input_file = tmp_path / "benefit_amount.rac"
+        input_file = tmp_path / "benefit_amount.yaml"
         input_file.write_text(
             """
-import "./shared.rac"
+import "./shared.yaml"
 
 tax:
   entity: Person
@@ -452,7 +452,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -467,7 +467,7 @@ tax:
 
     def test_compile_structured_parameter_file_supplies_metadata(self, tmp_path):
         """Compile accepts the structured parameter bundle schema."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         parameter_file = tmp_path / "bindings.json"
         input_file.write_text(
             """
@@ -499,7 +499,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -514,7 +514,7 @@ tax:
 
     def test_compile_parameter_cli_overrides_parameter_file(self, tmp_path):
         """Inline parameter bindings override file-backed values."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         parameter_file = tmp_path / "bindings.json"
         input_file.write_text(
             """
@@ -533,7 +533,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -550,23 +550,23 @@ tax:
 
     def test_compile_ambiguous_bare_parameter_binding_exits_1(self, tmp_path):
         """Ambiguous bare parameter bindings fail with a user-facing error."""
-        (tmp_path / "left.rac").write_text(
+        (tmp_path / "left.yaml").write_text(
             """
 rate:
   source: "left-rate"
 """
         )
-        (tmp_path / "right.rac").write_text(
+        (tmp_path / "right.yaml").write_text(
             """
 rate:
   source: "right-rate"
 """
         )
-        input_file = tmp_path / "benefit_amount.rac"
+        input_file = tmp_path / "benefit_amount.yaml"
         input_file.write_text(
             """
-import "./left.rac"
-import "./right.rac"
+import "./left.yaml"
+import "./right.yaml"
 
 tax:
   entity: Person
@@ -579,7 +579,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -593,16 +593,16 @@ tax:
 
     def test_compile_supports_dotted_module_identity_parameter_binding(self, tmp_path):
         """Qualified parameter bindings accept dotted leaf identities."""
-        (tmp_path / "shared.v1.rac").write_text(
+        (tmp_path / "shared.v1.yaml").write_text(
             """
 rate:
   source: "shared-rate"
 """
         )
-        input_file = tmp_path / "benefit_amount.rac"
+        input_file = tmp_path / "benefit_amount.yaml"
         input_file.write_text(
             """
-import "./shared.v1.rac"
+import "./shared.v1.yaml"
 
 tax:
   entity: Person
@@ -615,7 +615,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -631,7 +631,7 @@ tax:
 
     def test_compile_missing_source_only_parameter_binding_exits_1(self, tmp_path):
         """Referenced source-only parameters must be bound explicitly."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 rate:
@@ -645,14 +645,14 @@ tax:
     return wages * rate
 """
         )
-        with patch("sys.argv", ["rac-compile", "compile", str(input_file)]):
+        with patch("sys.argv", ["rulespec-compile", "compile", str(input_file)]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
             assert exc_info.value.code == 1
 
     def test_compile_if_else_formula_to_python(self, tmp_path):
         """Limited if/else formulas compile through the CLI."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 tax:
@@ -669,7 +669,7 @@ tax:
         )
         with patch(
             "sys.argv",
-            ["rac-compile", "compile", str(input_file), "--python"],
+            ["rulespec-compile", "compile", str(input_file), "--python"],
         ):
             with patch("builtins.print") as mock_print:
                 main()
@@ -679,7 +679,7 @@ tax:
 
     def test_compile_select_output_prunes_return_shape(self, tmp_path):
         """CLI output selection returns only the requested variable."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 rate:
@@ -711,7 +711,7 @@ bonus:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -729,8 +729,8 @@ bonus:
                 assert "bonus" not in result
 
     def test_compile_resolves_local_file_imports(self, tmp_path):
-        """CLI compile loads local imported RAC files before code generation."""
-        shared = tmp_path / "shared.rac"
+        """CLI compile loads local imported RuleSpec files before code generation."""
+        shared = tmp_path / "shared.yaml"
         shared.write_text(
             """
 rate:
@@ -745,10 +745,10 @@ taxable_income:
     return wages - deduction
 """
         )
-        input_file = tmp_path / "main.rac"
+        input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
-import "./shared.rac"
+import "./shared.yaml"
 
 tax:
   entity: Person
@@ -760,7 +760,7 @@ tax:
         )
         with patch(
             "sys.argv",
-            ["rac-compile", "compile", str(input_file), "--python"],
+            ["rulespec-compile", "compile", str(input_file), "--python"],
         ):
             with patch("builtins.print") as mock_print:
                 main()
@@ -771,25 +771,25 @@ tax:
 
     def test_compile_resolves_aliased_imports(self, tmp_path):
         """CLI compile supports module-qualified references through import aliases."""
-        (tmp_path / "left.rac").write_text(
+        (tmp_path / "left.yaml").write_text(
             """
 rate:
   source: "left-rate"
   from 2024-01-01: 0.1
 """
         )
-        (tmp_path / "right.rac").write_text(
+        (tmp_path / "right.yaml").write_text(
             """
 rate:
   source: "right-rate"
   from 2024-01-01: 0.2
 """
         )
-        input_file = tmp_path / "main.rac"
+        input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
-import "./left.rac" as left
-import "./right.rac" as right
+import "./left.yaml" as left
+import "./right.yaml" as right
 
 tax:
   entity: Person
@@ -801,7 +801,7 @@ tax:
         )
         with patch(
             "sys.argv",
-            ["rac-compile", "compile", str(input_file), "--python"],
+            ["rulespec-compile", "compile", str(input_file), "--python"],
         ):
             with patch("builtins.print") as mock_print:
                 main()
@@ -811,7 +811,7 @@ tax:
 
     def test_compile_supports_selective_imports_from_explicit_exports(self, tmp_path):
         """CLI compile binds selected exported names without a whole-module import."""
-        (tmp_path / "shared.rac").write_text(
+        (tmp_path / "shared.yaml").write_text(
             """
 export rate_public, taxable_income
 
@@ -831,10 +831,10 @@ taxable_income:
     return wages - deduction
 """
         )
-        input_file = tmp_path / "main.rac"
+        input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
-from "./shared.rac" import rate_public as rate, taxable_income
+from "./shared.yaml" import rate_public as rate, taxable_income
 
 tax:
   entity: Person
@@ -846,7 +846,7 @@ tax:
         )
         with patch(
             "sys.argv",
-            ["rac-compile", "compile", str(input_file), "--python"],
+            ["rulespec-compile", "compile", str(input_file), "--python"],
         ):
             with patch("builtins.print") as mock_print:
                 main()
@@ -856,7 +856,7 @@ tax:
 
     def test_compile_export_aliases_define_public_output_names(self, tmp_path):
         """CLI compile returns aliased public outputs instead of internal names."""
-        input_file = tmp_path / "main.rac"
+        input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
 export tax as benefit_amount
@@ -871,7 +871,7 @@ tax:
         )
         with patch(
             "sys.argv",
-            ["rac-compile", "compile", str(input_file), "--python"],
+            ["rulespec-compile", "compile", str(input_file), "--python"],
         ):
             with patch("builtins.print") as mock_print:
                 main()
@@ -883,7 +883,7 @@ tax:
 
     def test_compile_select_output_uses_public_export_alias(self, tmp_path):
         """CLI selected outputs follow the exported public interface."""
-        input_file = tmp_path / "main.rac"
+        input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
 export tax as benefit_amount
@@ -906,7 +906,7 @@ bonus:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -925,7 +925,7 @@ bonus:
 
     def test_compile_supports_module_re_exports(self, tmp_path):
         """CLI compile resolves re-exported symbols through intermediate modules."""
-        (tmp_path / "base.rac").write_text(
+        (tmp_path / "base.yaml").write_text(
             """
 export private_rate as rate
 
@@ -934,15 +934,15 @@ private_rate:
   from 2024-01-01: 0.1
 """
         )
-        (tmp_path / "surface.rac").write_text(
+        (tmp_path / "surface.yaml").write_text(
             """
-export from "./base.rac" import rate
+export from "./base.yaml" import rate
 """
         )
-        input_file = tmp_path / "main.rac"
+        input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
-from "./surface.rac" import rate
+from "./surface.yaml" import rate
 
 tax:
   entity: Person
@@ -954,7 +954,7 @@ tax:
         )
         with patch(
             "sys.argv",
-            ["rac-compile", "compile", str(input_file), "--python"],
+            ["rulespec-compile", "compile", str(input_file), "--python"],
         ):
             with patch("builtins.print") as mock_print:
                 main()
@@ -964,7 +964,7 @@ tax:
 
     def test_compile_supports_module_roots_for_bare_imports(self, tmp_path):
         """CLI compile resolves bare imports through repeated --module-root flags."""
-        shared = tmp_path / "lib" / "tax" / "shared.rac"
+        shared = tmp_path / "lib" / "tax" / "shared.yaml"
         shared.parent.mkdir(parents=True, exist_ok=True)
         shared.write_text(
             """
@@ -975,10 +975,10 @@ private_rate:
   from 2024-01-01: 0.1
 """
         )
-        input_file = tmp_path / "main.rac"
+        input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
-from "tax/shared.rac" import rate
+from "tax/shared.yaml" import rate
 
 tax:
   entity: Person
@@ -991,7 +991,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -1007,7 +1007,7 @@ tax:
 
     def test_compile_supports_cli_package_aliases(self, tmp_path):
         """CLI compile resolves package-prefixed imports through --package."""
-        shared = tmp_path / "packages" / "tax" / "shared.rac"
+        shared = tmp_path / "packages" / "tax" / "shared.yaml"
         shared.parent.mkdir(parents=True, exist_ok=True)
         shared.write_text(
             """
@@ -1018,10 +1018,10 @@ private_rate:
   from 2024-01-01: 0.1
 """
         )
-        input_file = tmp_path / "main.rac"
+        input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
-from "tax/shared.rac" import rate
+from "tax/shared.yaml" import rate
 
 tax:
   entity: Person
@@ -1034,7 +1034,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--python",
@@ -1048,10 +1048,12 @@ tax:
                 exec(mock_print.call_args_list[0][0][0], namespace)
                 assert namespace["calculate"](wages=100)["tax"] == 10
 
-    def test_compile_malformed_rac_toml_exits_1(self, tmp_path):
-        """Malformed rac.toml config still surfaces as a normal CLI error."""
-        (tmp_path / "rac.toml").write_text('[module_resolution\nroots = ["./lib"]\n')
-        input_file = tmp_path / "main.rac"
+    def test_compile_malformed_rulespec_toml_exits_1(self, tmp_path):
+        """Malformed rulespec.toml config still surfaces as a normal CLI error."""
+        (tmp_path / "rulespec.toml").write_text(
+            '[module_resolution\nroots = ["./lib"]\n'
+        )
+        input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
 tax:
@@ -1062,14 +1064,14 @@ tax:
     return wages * 0.1
 """
         )
-        with patch("sys.argv", ["rac-compile", "compile", str(input_file)]):
+        with patch("sys.argv", ["rulespec-compile", "compile", str(input_file)]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
             assert exc_info.value.code == 1
 
     def test_compile_unknown_selected_output_exits_1(self, tmp_path):
         """Selecting a missing output variable surfaces a user-facing error."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 tax:
@@ -1083,7 +1085,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--select-output",
@@ -1096,7 +1098,7 @@ tax:
 
     def test_compile_unsupported_construct_exits_1(self, tmp_path):
         """Unsupported generic compilation surfaces a user-facing error."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 tax:
@@ -1108,7 +1110,7 @@ tax:
       return wages
 """
         )
-        with patch("sys.argv", ["rac-compile", "compile", str(input_file)]):
+        with patch("sys.argv", ["rulespec-compile", "compile", str(input_file)]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
             assert exc_info.value.code == 1
@@ -1119,7 +1121,7 @@ class TestCLIMainLower:
 
     def test_lower_to_stdout_emits_pruned_lowered_json(self, tmp_path):
         """lower emits a serializable selected-output bundle to stdout."""
-        input_file = tmp_path / "policy.rac"
+        input_file = tmp_path / "policy.yaml"
         input_file.write_text(
             """
 rate:
@@ -1151,7 +1153,7 @@ bonus:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "lower",
                 str(input_file),
                 "--select-output",
@@ -1170,7 +1172,7 @@ bonus:
 
     def test_compile_missing_return_path_exits_1(self, tmp_path):
         """Control flow without a total return still fails loudly."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 tax:
@@ -1182,14 +1184,14 @@ tax:
       return wages
 """
         )
-        with patch("sys.argv", ["rac-compile", "compile", str(input_file)]):
+        with patch("sys.argv", ["rulespec-compile", "compile", str(input_file)]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
             assert exc_info.value.code == 1
 
     def test_compile_unsupported_function_call_exits_1(self, tmp_path):
         """Unknown helper calls fail loudly instead of generating bad code."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 tax:
@@ -1200,14 +1202,14 @@ tax:
     return custom_credit(wages)
 """
         )
-        with patch("sys.argv", ["rac-compile", "compile", str(input_file)]):
+        with patch("sys.argv", ["rulespec-compile", "compile", str(input_file)]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
             assert exc_info.value.code == 1
 
     def test_compile_invalid_effective_date_exits_2(self, tmp_path):
         """Invalid effective dates are rejected by argparse."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 tax:
@@ -1221,7 +1223,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--effective-date",
@@ -1234,7 +1236,7 @@ tax:
 
     def test_compile_invalid_parameter_binding_exits_2(self, tmp_path):
         """Invalid parameter binding syntax is rejected by argparse."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
 tax:
@@ -1248,7 +1250,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--parameter",
@@ -1261,7 +1263,7 @@ tax:
 
     def test_compile_invalid_parameter_file_exits_1(self, tmp_path):
         """Invalid parameter files surface a user-facing error."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         parameter_file = tmp_path / "bindings.json"
         input_file.write_text(
             """
@@ -1277,7 +1279,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--parameter-file",
@@ -1290,7 +1292,7 @@ tax:
 
     def test_compile_malformed_parameter_binding_file_exits_1(self, tmp_path):
         """Malformed nested binding dicts surface a user-facing error."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         parameter_file = tmp_path / "bindings.json"
         input_file.write_text(
             """
@@ -1309,7 +1311,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--parameter-file",
@@ -1322,7 +1324,7 @@ tax:
 
     def test_compile_malformed_parameter_list_file_exits_1(self, tmp_path):
         """Malformed list binding payloads surface a user-facing error."""
-        input_file = tmp_path / "test.rac"
+        input_file = tmp_path / "test.yaml"
         parameter_file = tmp_path / "bindings.json"
         input_file.write_text(
             """
@@ -1341,7 +1343,7 @@ tax:
         with patch(
             "sys.argv",
             [
-                "rac-compile",
+                "rulespec-compile",
                 "compile",
                 str(input_file),
                 "--parameter-file",
@@ -1358,7 +1360,7 @@ class TestCLIMainHarness:
 
     def test_harness_to_stdout(self):
         """harness outputs a human-readable scorecard."""
-        with patch("sys.argv", ["rac-compile", "harness"]):
+        with patch("sys.argv", ["rulespec-compile", "harness"]):
             with patch("builtins.print") as mock_print:
                 main()
                 output = mock_print.call_args_list[0][0][0]
@@ -1368,7 +1370,7 @@ class TestCLIMainHarness:
         """harness --json outputs machine-readable summary JSON."""
         with patch(
             "sys.argv",
-            ["rac-compile", "harness", "--json", "--case", "basic_straight_line"],
+            ["rulespec-compile", "harness", "--json", "--case", "basic_straight_line"],
         ):
             with patch("builtins.print") as mock_print:
                 main()
@@ -1396,10 +1398,12 @@ class TestCLIMainHarness:
             ],
         )
         with patch(
-            "src.rac_compile.cli.run_compiler_harness",
+            "src.rulespec_compile.cli.run_compiler_harness",
             return_value=summary,
         ) as mock_run:
-            with patch("sys.argv", ["rac-compile", "harness", "--include-external"]):
+            with patch(
+                "sys.argv", ["rulespec-compile", "harness", "--include-external"]
+            ):
                 with patch("builtins.print"):
                     main()
         mock_run.assert_called_once_with(
@@ -1420,7 +1424,7 @@ class TestCLIMainHarness:
             },
             results=[
                 HarnessResult(
-                    case="live_rac_us_citation_identity",
+                    case="live_rulespec_us_citation_identity",
                     category="live_stack",
                     passed=False,
                     status="failed",
@@ -1429,10 +1433,10 @@ class TestCLIMainHarness:
             ],
         )
         with patch(
-            "src.rac_compile.cli.run_compiler_harness",
+            "src.rulespec_compile.cli.run_compiler_harness",
             return_value=summary,
         ) as mock_run:
-            with patch("sys.argv", ["rac-compile", "harness", "--include-live"]):
+            with patch("sys.argv", ["rulespec-compile", "harness", "--include-live"]):
                 with pytest.raises(SystemExit) as exc_info:
                     with patch("builtins.print"):
                         main()
@@ -1447,7 +1451,7 @@ class TestCLIMainHarness:
         """Unknown harness case names are rejected."""
         with patch(
             "sys.argv",
-            ["rac-compile", "harness", "--case", "does_not_exist"],
+            ["rulespec-compile", "harness", "--case", "does_not_exist"],
         ):
             with pytest.raises(SystemExit) as exc_info:
                 main()
@@ -1471,8 +1475,10 @@ class TestCLIMainHarness:
                 )
             ],
         )
-        with patch("src.rac_compile.cli.run_compiler_harness", return_value=summary):
-            with patch("sys.argv", ["rac-compile", "harness"]):
+        with patch(
+            "src.rulespec_compile.cli.run_compiler_harness", return_value=summary
+        ):
+            with patch("sys.argv", ["rulespec-compile", "harness"]):
                 with pytest.raises(SystemExit) as exc_info:
                     main()
                 assert exc_info.value.code == 1
@@ -1483,7 +1489,7 @@ class TestCLIMainEitc:
 
     def test_eitc_js_to_stdout(self):
         """eitc command outputs JS to stdout by default."""
-        with patch("sys.argv", ["rac-compile", "eitc"]):
+        with patch("sys.argv", ["rulespec-compile", "eitc"]):
             with patch("builtins.print") as mock_print:
                 main()
                 output = mock_print.call_args_list[0][0][0]
@@ -1492,7 +1498,7 @@ class TestCLIMainEitc:
     def test_eitc_js_to_file(self, tmp_path):
         """eitc command writes JS to file with -o."""
         output_file = tmp_path / "eitc.js"
-        with patch("sys.argv", ["rac-compile", "eitc", "-o", str(output_file)]):
+        with patch("sys.argv", ["rulespec-compile", "eitc", "-o", str(output_file)]):
             main()
             assert output_file.exists()
             content = output_file.read_text()
@@ -1500,7 +1506,7 @@ class TestCLIMainEitc:
 
     def test_eitc_python_to_stdout(self):
         """eitc --python outputs Python to stdout."""
-        with patch("sys.argv", ["rac-compile", "eitc", "--python"]):
+        with patch("sys.argv", ["rulespec-compile", "eitc", "--python"]):
             with patch("builtins.print") as mock_print:
                 main()
                 output = mock_print.call_args_list[0][0][0]
@@ -1511,7 +1517,7 @@ class TestCLIMainEitc:
         output_file = tmp_path / "eitc.py"
         with patch(
             "sys.argv",
-            ["rac-compile", "eitc", "--python", "-o", str(output_file)],
+            ["rulespec-compile", "eitc", "--python", "-o", str(output_file)],
         ):
             main()
             assert output_file.exists()
@@ -1520,7 +1526,7 @@ class TestCLIMainEitc:
 
     def test_eitc_custom_year(self):
         """eitc --year 2024 passes correct year."""
-        with patch("sys.argv", ["rac-compile", "eitc", "--year", "2024"]):
+        with patch("sys.argv", ["rulespec-compile", "eitc", "--year", "2024"]):
             with patch("builtins.print") as mock_print:
                 main()
                 output = mock_print.call_args_list[0][0][0]
@@ -1532,7 +1538,7 @@ class TestCLIMainNoCommand:
 
     def test_no_command_exits_1(self):
         """No command prints help and exits 1."""
-        with patch("sys.argv", ["rac-compile"]):
+        with patch("sys.argv", ["rulespec-compile"]):
             with pytest.raises(SystemExit) as exc_info:
                 main()
             assert exc_info.value.code == 1

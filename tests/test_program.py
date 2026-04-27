@@ -1,16 +1,16 @@
-"""Tests for multi-file RAC program loading and compilation."""
+"""Tests for multi-file RuleSpec program loading and compilation."""
 
 import json
 from pathlib import Path
 
 import pytest
 
-from src.rac_compile.compile_model import CompilationError
-from src.rac_compile.program import load_rac_program
-from src.rac_compile.rule_bindings import RuleBindingError
+from src.rulespec_compile.compile_model import CompilationError
+from src.rulespec_compile.program import load_rulespec_program
+from src.rulespec_compile.rule_bindings import RuleBindingError
 
 
-class TestRacProgram:
+class TestRuleSpecProgram:
     """Tests for file-graph loading and compilation."""
 
     def test_working_families_example_graph_compiles_and_runs(self):
@@ -19,12 +19,12 @@ class TestRacProgram:
             Path(__file__).parent.parent
             / "examples"
             / "working_families"
-            / "benefit_amount.rac"
+            / "benefit_amount.yaml"
         )
 
         namespace = {}
         code = (
-            load_rac_program(entry)
+            load_rulespec_program(entry)
             .to_python_generator(
                 parameter_overrides={"phase_in_rate.rate": 0.25},
                 outputs=["benefit_amount"],
@@ -52,10 +52,10 @@ class TestRacProgram:
             Path(__file__).parent.parent
             / "examples"
             / "working_families"
-            / "benefit_amount.rac"
+            / "benefit_amount.yaml"
         )
 
-        lowered = load_rac_program(entry).to_lowered_program(
+        lowered = load_rulespec_program(entry).to_lowered_program(
             parameter_overrides={"phase_in_rate.rate": 0.25},
             outputs=["benefit_amount"],
         )
@@ -66,9 +66,9 @@ class TestRacProgram:
             "phase_in_rate",
         }
 
-    def test_load_rac_program_defaults_to_computed_outputs_only(self, tmp_path):
+    def test_load_rulespec_program_defaults_to_computed_outputs_only(self, tmp_path):
         """Default public outputs should not include free inputs from source files."""
-        entry = tmp_path / "snap_child_support_deduction.rac"
+        entry = tmp_path / "snap_child_support_deduction.yaml"
         entry.write_text(
             """
 snap_child_support_payments_made:
@@ -90,7 +90,7 @@ snap_child_support_deduction:
 """
         )
 
-        program = load_rac_program(entry)
+        program = load_rulespec_program(entry)
         lowered = program.to_lowered_program()
 
         assert program.default_outputs == ["snap_child_support_deduction"]
@@ -102,11 +102,11 @@ snap_child_support_deduction:
             "snap_state_uses_child_support_deduction",
         }
 
-    def test_load_rac_program_supports_inline_rac_conditional_expressions(
+    def test_load_rulespec_program_supports_inline_rulespec_conditional_expressions(
         self, tmp_path
     ):
-        """Inline `if cond: a else: b` RAC expressions compile without rewrites."""
-        entry = tmp_path / "snap_child_support_deduction.rac"
+        """Inline `if cond: a else: b` RuleSpec expressions compile without rewrites."""
+        entry = tmp_path / "snap_child_support_deduction.yaml"
         entry.write_text(
             """
 snap_child_support_payments_made:
@@ -129,7 +129,7 @@ snap_child_support_deduction:
         )
 
         namespace = {}
-        code = load_rac_program(entry).to_python_generator().generate()
+        code = load_rulespec_program(entry).to_python_generator().generate()
 
         exec(code, namespace)
 
@@ -148,9 +148,11 @@ snap_child_support_deduction:
             == 0
         )
 
-    def test_load_rac_program_supports_chained_inline_rac_conditionals(self, tmp_path):
-        """Chained inline RAC conditionals collapse into one compiled expression."""
-        entry = tmp_path / "need_standard.rac"
+    def test_load_rulespec_program_supports_chained_inline_rulespec_conditionals(
+        self, tmp_path
+    ):
+        """Chained RuleSpec conditionals collapse into one expression."""
+        entry = tmp_path / "need_standard.yaml"
         entry.write_text(
             """
 number_of_children_in_assistance_unit:
@@ -171,7 +173,7 @@ need_standard:
         )
 
         namespace = {}
-        code = load_rac_program(entry).to_python_generator().generate()
+        code = load_rulespec_program(entry).to_python_generator().generate()
 
         exec(code, namespace)
 
@@ -194,11 +196,11 @@ need_standard:
             == 999
         )
 
-    def test_load_rac_program_supports_multiline_expression_continuations(
+    def test_load_rulespec_program_supports_multiline_expression_continuations(
         self, tmp_path
     ):
         """Bare expression lines can continue across multiple lines at one indent."""
-        entry = tmp_path / "flag.rac"
+        entry = tmp_path / "flag.yaml"
         entry.write_text(
             """
 a:
@@ -222,16 +224,18 @@ flag:
         )
 
         namespace = {}
-        code = load_rac_program(entry).to_python_generator().generate()
+        code = load_rulespec_program(entry).to_python_generator().generate()
 
         exec(code, namespace)
 
         assert namespace["calculate"](a=True, b=True)["flag"] is True
         assert namespace["calculate"](a=True, b=False)["flag"] is False
 
-    def test_load_rac_program_supports_inline_if_elif_else_statements(self, tmp_path):
+    def test_load_rulespec_program_supports_inline_if_elif_else_statements(
+        self, tmp_path
+    ):
         """Single-line `if` / `elif` / `else` branches normalize into real blocks."""
-        entry = tmp_path / "phaseout_percentage.rac"
+        entry = tmp_path / "phaseout_percentage.yaml"
         entry.write_text(
             """
 qualifying_child_count:
@@ -264,7 +268,7 @@ phaseout_percentage:
         )
 
         namespace = {}
-        code = load_rac_program(entry).to_python_generator().generate()
+        code = load_rulespec_program(entry).to_python_generator().generate()
 
         exec(code, namespace)
 
@@ -281,9 +285,9 @@ phaseout_percentage:
             == 0.2106
         )
 
-    def test_load_rac_program_compiles_cross_file_dependencies(self, tmp_path):
+    def test_load_rulespec_program_compiles_cross_file_dependencies(self, tmp_path):
         """Entry files can compile imported helper variables and parameters."""
-        shared = tmp_path / "shared.rac"
+        shared = tmp_path / "shared.yaml"
         shared.write_text(
             """
 rate:
@@ -298,10 +302,10 @@ taxable_income:
     return wages - deduction
 """
         )
-        entry = tmp_path / "main.rac"
+        entry = tmp_path / "main.yaml"
         entry.write_text(
             """
-import "./shared.rac"
+import "./shared.yaml"
 
 tax:
   entity: Person
@@ -313,7 +317,7 @@ tax:
         )
 
         namespace = {}
-        code = load_rac_program(entry).to_python_generator().generate()
+        code = load_rulespec_program(entry).to_python_generator().generate()
 
         exec(code, namespace)
 
@@ -321,11 +325,11 @@ tax:
         assert result["tax"] == 90
         assert "taxable_income" not in result
 
-    def test_load_rac_program_resolves_spec_style_variable_imports(self, tmp_path):
+    def test_load_rulespec_program_resolves_spec_style_variable_imports(self, tmp_path):
         """Per-variable `imports:` blocks resolve through statute-root paths."""
         statute_root = tmp_path / "statute" / "26" / "62"
         statute_root.mkdir(parents=True)
-        (statute_root / "62.rac").write_text(
+        (statute_root / "62.yaml").write_text(
             """
 adjusted_gross_income:
   entity: TaxUnit
@@ -335,7 +339,7 @@ adjusted_gross_income:
         )
         target_root = tmp_path / "statute" / "26" / "21" / "a" / "2"
         target_root.mkdir(parents=True)
-        entry = target_root / "A.rac"
+        entry = target_root / "A.yaml"
         entry.write_text(
             """
 first_reduction:
@@ -349,7 +353,7 @@ first_reduction:
 """
         )
 
-        lowered = load_rac_program(entry).to_lowered_program(
+        lowered = load_rulespec_program(entry).to_lowered_program(
             outputs=["first_reduction"]
         )
 
@@ -358,11 +362,13 @@ first_reduction:
         ]
         assert lowered.outputs[0].module_identity == "statute/26/21/a/2/A"
 
-    def test_load_rac_program_resolves_root_qualified_top_level_imports(self, tmp_path):
+    def test_load_rulespec_program_resolves_root_qualified_top_level_imports(
+        self, tmp_path
+    ):
         """Top-level `imports:` blocks can target root-qualified citation paths."""
         dependency_root = tmp_path / "statute" / "crs" / "26-2-703"
         dependency_root.mkdir(parents=True)
-        (dependency_root / "12.rac").write_text(
+        (dependency_root / "12.yaml").write_text(
             """
 contract_is_entered_into_by_participant_and_county_department:
   entity: Person
@@ -385,7 +391,7 @@ is_individual_responsibility_contract:
         )
         entry_root = tmp_path / "statute" / "crs" / "26-2-711" / "1" / "a"
         entry_root.mkdir(parents=True)
-        entry = entry_root / "I.rac"
+        entry = entry_root / "I.yaml"
         entry.write_text(
             """
 imports:
@@ -412,7 +418,7 @@ participant_is_subject_to_sanction_for_noncompliance_with_individual_responsibil
 """
         )
 
-        lowered = load_rac_program(entry).to_lowered_program(
+        lowered = load_rulespec_program(entry).to_lowered_program(
             outputs=[
                 "participant_is_subject_to_sanction_for_noncompliance_with_individual_responsibility_contract"
             ]
@@ -438,7 +444,7 @@ participant_is_subject_to_sanction_for_noncompliance_with_individual_responsibil
 
         namespace: dict[str, object] = {}
         code = (
-            load_rac_program(entry)
+            load_rulespec_program(entry)
             .to_python_generator(
                 outputs=[
                     "participant_is_subject_to_sanction_for_noncompliance_with_individual_responsibility_contract"
@@ -474,7 +480,7 @@ participant_is_subject_to_sanction_for_noncompliance_with_individual_responsibil
 
     def test_selected_outputs_prune_unreachable_imported_variables(self, tmp_path):
         """Graph pruning excludes unreachable imported variables before validation."""
-        shared = tmp_path / "shared.rac"
+        shared = tmp_path / "shared.yaml"
         shared.write_text(
             """
 rate:
@@ -497,10 +503,10 @@ bonus:
       return wages
 """
         )
-        entry = tmp_path / "main.rac"
+        entry = tmp_path / "main.yaml"
         entry.write_text(
             """
-import "./shared.rac"
+import "./shared.yaml"
 
 tax:
   entity: Person
@@ -512,30 +518,32 @@ tax:
         )
 
         namespace = {}
-        code = load_rac_program(entry).to_python_generator(outputs=["tax"]).generate()
+        code = (
+            load_rulespec_program(entry).to_python_generator(outputs=["tax"]).generate()
+        )
 
         exec(code, namespace)
 
         assert namespace["calculate"](wages=1000, deduction=100)["tax"] == 90
 
-    def test_load_rac_program_rejects_missing_import(self, tmp_path):
+    def test_load_rulespec_program_rejects_missing_import(self, tmp_path):
         """Missing imported files fail with a user-facing error."""
-        entry = tmp_path / "main.rac"
-        entry.write_text('import "./missing.rac"\n')
+        entry = tmp_path / "main.yaml"
+        entry.write_text('import "./missing.yaml"\n')
 
         with pytest.raises(CompilationError, match="was not found"):
-            load_rac_program(entry)
+            load_rulespec_program(entry)
 
-    def test_load_rac_program_rejects_non_rac_entry_file(self, tmp_path):
-        """Entrypoints must use the .rac extension."""
+    def test_load_rulespec_program_rejects_non_rulespec_entry_file(self, tmp_path):
+        """Entrypoints must use the .yaml extension."""
         entry = tmp_path / "main.txt"
         entry.write_text("tax:\n  entity: Person\n  period: Year\n  dtype: Money\n")
 
-        with pytest.raises(CompilationError, match="must use the \\.rac extension"):
-            load_rac_program(entry)
+        with pytest.raises(CompilationError, match="must use the \\.yaml extension"):
+            load_rulespec_program(entry)
 
-    def test_load_rac_program_rejects_non_rac_imports(self, tmp_path):
-        """Imported files must also use the .rac extension."""
+    def test_load_rulespec_program_rejects_non_rulespec_imports(self, tmp_path):
+        """Imported files must also use the .yaml extension."""
         (tmp_path / "shared.txt").write_text(
             """
 rate:
@@ -543,23 +551,23 @@ rate:
   from 2024-01-01: 0.1
 """
         )
-        entry = tmp_path / "main.rac"
+        entry = tmp_path / "main.yaml"
         entry.write_text('import "./shared.txt"\n')
 
-        with pytest.raises(CompilationError, match="must use the \\.rac extension"):
-            load_rac_program(entry)
+        with pytest.raises(CompilationError, match="must use the \\.yaml extension"):
+            load_rulespec_program(entry)
 
-    def test_load_rac_program_rejects_import_cycles(self, tmp_path):
+    def test_load_rulespec_program_rejects_import_cycles(self, tmp_path):
         """Import cycles fail loudly instead of recursing forever."""
-        (tmp_path / "a.rac").write_text('import "./b.rac"\n')
-        (tmp_path / "b.rac").write_text('import "./a.rac"\n')
+        (tmp_path / "a.yaml").write_text('import "./b.yaml"\n')
+        (tmp_path / "b.yaml").write_text('import "./a.yaml"\n')
 
         with pytest.raises(CompilationError, match="Import cycle detected"):
-            load_rac_program(tmp_path / "a.rac")
+            load_rulespec_program(tmp_path / "a.yaml")
 
-    def test_load_rac_program_rejects_duplicate_symbols(self, tmp_path):
+    def test_load_rulespec_program_rejects_duplicate_symbols(self, tmp_path):
         """Plain imports still reject ambiguous duplicate symbol exposure."""
-        (tmp_path / "left.rac").write_text(
+        (tmp_path / "left.yaml").write_text(
             """
 shared:
   entity: Person
@@ -569,7 +577,7 @@ shared:
     return 1
 """
         )
-        (tmp_path / "right.rac").write_text(
+        (tmp_path / "right.yaml").write_text(
             """
 shared:
   entity: Person
@@ -579,10 +587,10 @@ shared:
     return 2
 """
         )
-        (tmp_path / "main.rac").write_text(
+        (tmp_path / "main.yaml").write_text(
             """
-import "./left.rac"
-import "./right.rac"
+import "./left.yaml"
+import "./right.yaml"
 
 tax:
   entity: Person
@@ -594,28 +602,28 @@ tax:
         )
 
         with pytest.raises(CompilationError, match="Plain import scope collision"):
-            load_rac_program(tmp_path / "main.rac").to_compile_model()
+            load_rulespec_program(tmp_path / "main.yaml").to_compile_model()
 
-    def test_load_rac_program_supports_aliased_duplicate_symbols(self, tmp_path):
+    def test_load_rulespec_program_supports_aliased_duplicate_symbols(self, tmp_path):
         """Aliased imports can expose duplicate names without global collisions."""
-        (tmp_path / "left.rac").write_text(
+        (tmp_path / "left.yaml").write_text(
             """
 rate:
   source: "left-rate"
   from 2024-01-01: 0.1
 """
         )
-        (tmp_path / "right.rac").write_text(
+        (tmp_path / "right.yaml").write_text(
             """
 rate:
   source: "right-rate"
   from 2024-01-01: 0.2
 """
         )
-        (tmp_path / "main.rac").write_text(
+        (tmp_path / "main.yaml").write_text(
             """
-import "./left.rac" as left
-import "./right.rac" as right
+import "./left.yaml" as left
+import "./right.yaml" as right
 
 tax:
   entity: Person
@@ -627,37 +635,43 @@ tax:
         )
 
         namespace = {}
-        code = load_rac_program(tmp_path / "main.rac").to_python_generator().generate()
+        code = (
+            load_rulespec_program(tmp_path / "main.yaml")
+            .to_python_generator()
+            .generate()
+        )
 
         exec(code, namespace)
 
         assert namespace["calculate"](wages=100)["tax"] == 30
 
-    def test_load_rac_program_rejects_duplicate_leaf_module_identities(self, tmp_path):
+    def test_load_rulespec_program_rejects_duplicate_leaf_module_identities(
+        self, tmp_path
+    ):
         """Programs fail loudly when two files share the same subsection leaf."""
         left = tmp_path / "left"
         right = tmp_path / "right"
         left.mkdir()
         right.mkdir()
-        (left / "shared.rac").write_text(
+        (left / "shared.yaml").write_text(
             """
 rate:
   source: "left-rate"
   from 2024-01-01: 0.1
 """
         )
-        (right / "shared.rac").write_text(
+        (right / "shared.yaml").write_text(
             """
 bonus:
   source: "right-bonus"
   from 2024-01-01: 2
 """
         )
-        entry = tmp_path / "benefit_amount.rac"
+        entry = tmp_path / "benefit_amount.yaml"
         entry.write_text(
             """
-import "./left/shared.rac"
-import "./right/shared.rac"
+import "./left/shared.yaml"
+import "./right/shared.yaml"
 
 tax:
   entity: Person
@@ -669,39 +683,39 @@ tax:
         )
 
         with pytest.raises(CompilationError) as exc_info:
-            load_rac_program(entry).to_compile_model()
+            load_rulespec_program(entry).to_compile_model()
         message = str(exc_info.value)
         assert "Module identity collision" in message
         assert "'shared'" in message
-        assert str(left / "shared.rac") in message
-        assert str(right / "shared.rac") in message
+        assert str(left / "shared.yaml") in message
+        assert str(right / "shared.yaml") in message
         assert "rename" in message.lower()
 
-    def test_load_rac_program_rejects_normalized_module_identity_collision(
+    def test_load_rulespec_program_rejects_normalized_module_identity_collision(
         self, tmp_path
     ):
         """Fail loudly when two distinct identities normalize to the same prefix."""
         statute_dir = tmp_path / "statute" / "us"
         statute_dir.mkdir(parents=True)
-        (statute_dir / "bar-baz.rac").write_text(
+        (statute_dir / "bar-baz.yaml").write_text(
             """
 rate_a:
   source: "rate-a"
   from 2024-01-01: 0.1
 """
         )
-        (statute_dir / "bar_baz.rac").write_text(
+        (statute_dir / "bar_baz.yaml").write_text(
             """
 rate_b:
   source: "rate-b"
   from 2024-01-01: 0.2
 """
         )
-        entry = tmp_path / "statute" / "us" / "entry.rac"
+        entry = tmp_path / "statute" / "us" / "entry.yaml"
         entry.write_text(
             """
-import "./bar-baz.rac"
-import "./bar_baz.rac"
+import "./bar-baz.yaml"
+import "./bar_baz.yaml"
 
 tax:
   entity: Person
@@ -713,23 +727,25 @@ tax:
         )
 
         with pytest.raises(CompilationError) as exc_info:
-            load_rac_program(entry).to_compile_model()
+            load_rulespec_program(entry).to_compile_model()
         message = str(exc_info.value)
         assert "Module identity collision after normalization" in message
         # Both distinct identities should be called out.
         assert "bar-baz" in message
         assert "bar_baz" in message
         # Both file paths should be included as well.
-        assert str(statute_dir / "bar-baz.rac") in message
-        assert str(statute_dir / "bar_baz.rac") in message
+        assert str(statute_dir / "bar-baz.yaml") in message
+        assert str(statute_dir / "bar_baz.yaml") in message
         # The internal symbol prefix that collided should be shown.
         assert "statute_us_bar_baz" in message
         # The remediation suggestion should be present.
         assert "rename" in message.lower()
 
-    def test_load_rac_program_lowered_bundle_preserves_module_identity(self, tmp_path):
+    def test_load_rulespec_program_lowered_bundle_preserves_module_identity(
+        self, tmp_path
+    ):
         """Lowered program metadata keeps leaf-derived rule identity per node."""
-        (tmp_path / "shared.rac").write_text(
+        (tmp_path / "shared.yaml").write_text(
             """
 source:
   citation: "26 USC shared"
@@ -746,10 +762,10 @@ taxable_income:
     return wages - deduction
 """
         )
-        entry = tmp_path / "benefit_amount.rac"
+        entry = tmp_path / "benefit_amount.yaml"
         entry.write_text(
             """
-import "./shared.rac"
+import "./shared.yaml"
 
 tax:
   entity: Person
@@ -760,7 +776,9 @@ tax:
 """
         )
 
-        payload = json.loads(load_rac_program(entry).to_lowered_program().to_json())
+        payload = json.loads(
+            load_rulespec_program(entry).to_lowered_program().to_json()
+        )
 
         assert [parameter["name"] for parameter in payload["parameters"]] == [
             "shared_rate"
@@ -782,11 +800,11 @@ tax:
             }
         ]
 
-    def test_load_rac_program_respects_explicit_exports_and_selective_imports(
+    def test_load_rulespec_program_respects_explicit_exports_and_selective_imports(
         self, tmp_path
     ):
         """Selective imports can only bind symbols that a module exports."""
-        (tmp_path / "shared.rac").write_text(
+        (tmp_path / "shared.yaml").write_text(
             """
 export rate_public, taxable_income
 
@@ -806,9 +824,9 @@ taxable_income:
     return wages - deduction
 """
         )
-        (tmp_path / "main.rac").write_text(
+        (tmp_path / "main.yaml").write_text(
             """
-from "./shared.rac" import rate_public as rate, taxable_income
+from "./shared.yaml" import rate_public as rate, taxable_income
 
 tax:
   entity: Person
@@ -820,24 +838,30 @@ tax:
         )
 
         namespace = {}
-        code = load_rac_program(tmp_path / "main.rac").to_python_generator().generate()
+        code = (
+            load_rulespec_program(tmp_path / "main.yaml")
+            .to_python_generator()
+            .generate()
+        )
 
         exec(code, namespace)
 
         assert namespace["calculate"](wages=1000, deduction=100)["tax"] == 90
 
-    def test_load_rac_program_resolves_qualified_parameter_bindings(self, tmp_path):
+    def test_load_rulespec_program_resolves_qualified_parameter_bindings(
+        self, tmp_path
+    ):
         """Imported source-only parameters bind through module_identity.symbol."""
-        (tmp_path / "shared.rac").write_text(
+        (tmp_path / "shared.yaml").write_text(
             """
 rate:
   source: "external/rate"
 """
         )
-        entry = tmp_path / "benefit_amount.rac"
+        entry = tmp_path / "benefit_amount.yaml"
         entry.write_text(
             """
-import "./shared.rac"
+import "./shared.yaml"
 
 tax:
   entity: Person
@@ -850,7 +874,7 @@ tax:
 
         namespace = {}
         code = (
-            load_rac_program(entry)
+            load_rulespec_program(entry)
             .to_python_generator(parameter_overrides={"shared.rate": 0.25})
             .generate()
         )
@@ -859,25 +883,27 @@ tax:
 
         assert namespace["calculate"](wages=100)["tax"] == 25
 
-    def test_load_rac_program_rejects_ambiguous_bare_parameter_bindings(self, tmp_path):
+    def test_load_rulespec_program_rejects_ambiguous_bare_parameter_bindings(
+        self, tmp_path
+    ):
         """Bare source-only names fail when more than one module defines them."""
-        (tmp_path / "left.rac").write_text(
+        (tmp_path / "left.yaml").write_text(
             """
 rate:
   source: "left-rate"
 """
         )
-        (tmp_path / "right.rac").write_text(
+        (tmp_path / "right.yaml").write_text(
             """
 rate:
   source: "right-rate"
 """
         )
-        entry = tmp_path / "benefit_amount.rac"
+        entry = tmp_path / "benefit_amount.yaml"
         entry.write_text(
             """
-import "./left.rac" as left
-import "./right.rac" as right
+import "./left.yaml" as left
+import "./right.yaml" as right
 
 tax:
   entity: Person
@@ -892,11 +918,15 @@ tax:
             RuleBindingError,
             match="Rule binding target 'rate' is ambiguous",
         ):
-            load_rac_program(entry).to_compile_model(parameter_overrides={"rate": 0.25})
+            load_rulespec_program(entry).to_compile_model(
+                parameter_overrides={"rate": 0.25}
+            )
 
-    def test_load_rac_program_rejects_selective_import_of_hidden_symbol(self, tmp_path):
+    def test_load_rulespec_program_rejects_selective_import_of_hidden_symbol(
+        self, tmp_path
+    ):
         """Selective imports fail loudly when the target file does not export a name."""
-        (tmp_path / "shared.rac").write_text(
+        (tmp_path / "shared.yaml").write_text(
             """
 export rate_public
 
@@ -909,9 +939,9 @@ hidden_rate:
   from 2024-01-01: 0.2
 """
         )
-        (tmp_path / "main.rac").write_text(
+        (tmp_path / "main.yaml").write_text(
             """
-from "./shared.rac" import hidden_rate
+from "./shared.yaml" import hidden_rate
 
 tax:
   entity: Person
@@ -923,13 +953,13 @@ tax:
         )
 
         with pytest.raises(CompilationError, match="non-exported symbol 'hidden_rate'"):
-            load_rac_program(tmp_path / "main.rac").to_compile_model()
+            load_rulespec_program(tmp_path / "main.yaml").to_compile_model()
 
-    def test_load_rac_program_supports_export_aliases_for_imports_and_outputs(
+    def test_load_rulespec_program_supports_export_aliases_for_imports_and_outputs(
         self, tmp_path
     ):
         """Export aliases define both import names and public result keys."""
-        (tmp_path / "shared.rac").write_text(
+        (tmp_path / "shared.yaml").write_text(
             """
 export private_rate as rate
 
@@ -938,10 +968,10 @@ private_rate:
   from 2024-01-01: 0.1
 """
         )
-        entry = tmp_path / "main.rac"
+        entry = tmp_path / "main.yaml"
         entry.write_text(
             """
-from "./shared.rac" import rate
+from "./shared.yaml" import rate
 export tax as benefit_amount
 
 tax:
@@ -954,7 +984,7 @@ tax:
         )
 
         namespace = {}
-        code = load_rac_program(entry).to_python_generator().generate()
+        code = load_rulespec_program(entry).to_python_generator().generate()
 
         exec(code, namespace)
 
@@ -962,9 +992,11 @@ tax:
         assert result["benefit_amount"] == 10
         assert "tax" not in result
 
-    def test_load_rac_program_select_output_uses_public_export_aliases(self, tmp_path):
+    def test_load_rulespec_program_select_output_uses_public_export_aliases(
+        self, tmp_path
+    ):
         """Selected outputs follow the public export surface, not internal names."""
-        entry = tmp_path / "main.rac"
+        entry = tmp_path / "main.yaml"
         entry.write_text(
             """
 export tax as benefit_amount
@@ -987,7 +1019,7 @@ bonus:
 
         namespace = {}
         code = (
-            load_rac_program(entry)
+            load_rulespec_program(entry)
             .to_python_generator(outputs=["benefit_amount"])
             .generate()
         )
@@ -1001,11 +1033,11 @@ bonus:
             CompilationError,
             match="Unknown exported output variable\\(s\\): tax",
         ):
-            load_rac_program(entry).to_compile_model(outputs=["tax"])
+            load_rulespec_program(entry).to_compile_model(outputs=["tax"])
 
-    def test_load_rac_program_supports_module_re_exports(self, tmp_path):
+    def test_load_rulespec_program_supports_module_re_exports(self, tmp_path):
         """Intermediate modules can re-export imported symbols without wrappers."""
-        (tmp_path / "base.rac").write_text(
+        (tmp_path / "base.yaml").write_text(
             """
 export private_rate as rate
 
@@ -1014,15 +1046,15 @@ private_rate:
   from 2024-01-01: 0.1
 """
         )
-        (tmp_path / "surface.rac").write_text(
+        (tmp_path / "surface.yaml").write_text(
             """
-export from "./base.rac" import rate
+export from "./base.yaml" import rate
 """
         )
-        entry = tmp_path / "main.rac"
+        entry = tmp_path / "main.yaml"
         entry.write_text(
             """
-from "./surface.rac" import rate
+from "./surface.yaml" import rate
 
 tax:
   entity: Person
@@ -1034,15 +1066,17 @@ tax:
         )
 
         namespace = {}
-        code = load_rac_program(entry).to_python_generator().generate()
+        code = load_rulespec_program(entry).to_python_generator().generate()
 
         exec(code, namespace)
 
         assert namespace["calculate"](wages=100)["tax"] == 10
 
-    def test_load_rac_program_supports_entry_re_exported_public_outputs(self, tmp_path):
+    def test_load_rulespec_program_supports_entry_re_exported_public_outputs(
+        self, tmp_path
+    ):
         """Entry modules can publish imported outputs through re-exports."""
-        (tmp_path / "upstream.rac").write_text(
+        (tmp_path / "upstream.yaml").write_text(
             """
 export tax as upstream_benefit
 
@@ -1054,15 +1088,15 @@ tax:
     return wages * 0.1
 """
         )
-        entry = tmp_path / "main.rac"
+        entry = tmp_path / "main.yaml"
         entry.write_text(
             """
-export from "./upstream.rac" import upstream_benefit as benefit_amount
+export from "./upstream.yaml" import upstream_benefit as benefit_amount
 """
         )
 
         namespace = {}
-        code = load_rac_program(entry).to_python_generator().generate()
+        code = load_rulespec_program(entry).to_python_generator().generate()
 
         exec(code, namespace)
 
@@ -1071,11 +1105,11 @@ export from "./upstream.rac" import upstream_benefit as benefit_amount
             "citations": [],
         }
 
-    def test_load_rac_program_re_exported_outputs_keep_upstream_module_identity(
+    def test_load_rulespec_program_re_exported_outputs_keep_upstream_module_identity(
         self, tmp_path
     ):
         """Public outputs exposed through re-exports preserve their source rule."""
-        (tmp_path / "upstream.rac").write_text(
+        (tmp_path / "upstream.yaml").write_text(
             """
 export tax as upstream_benefit
 
@@ -1087,14 +1121,16 @@ tax:
     return wages * 0.1
 """
         )
-        entry = tmp_path / "benefit_amount.rac"
+        entry = tmp_path / "benefit_amount.yaml"
         entry.write_text(
             """
-export from "./upstream.rac" import upstream_benefit as benefit_amount
+export from "./upstream.yaml" import upstream_benefit as benefit_amount
 """
         )
 
-        payload = json.loads(load_rac_program(entry).to_lowered_program().to_json())
+        payload = json.loads(
+            load_rulespec_program(entry).to_lowered_program().to_json()
+        )
 
         assert payload["outputs"] == [
             {
@@ -1105,15 +1141,17 @@ export from "./upstream.rac" import upstream_benefit as benefit_amount
             }
         ]
 
-    def test_load_rac_program_resolves_bare_imports_from_rac_toml(self, tmp_path):
-        """Program loading can resolve bare imports through rac.toml module roots."""
-        (tmp_path / "rac.toml").write_text(
+    def test_load_rulespec_program_resolves_bare_imports_from_rulespec_toml(
+        self, tmp_path
+    ):
+        """Program loading resolves bare imports via rulespec.toml roots."""
+        (tmp_path / "rulespec.toml").write_text(
             """
 [module_resolution]
 roots = ["./lib"]
 """
         )
-        shared = tmp_path / "lib" / "tax" / "shared.rac"
+        shared = tmp_path / "lib" / "tax" / "shared.yaml"
         shared.parent.mkdir(parents=True, exist_ok=True)
         shared.write_text(
             """
@@ -1124,10 +1162,10 @@ private_rate:
   from 2024-01-01: 0.1
 """
         )
-        entry = tmp_path / "main.rac"
+        entry = tmp_path / "main.yaml"
         entry.write_text(
             """
-from "tax/shared.rac" import rate
+from "tax/shared.yaml" import rate
 
 tax:
   entity: Person
@@ -1139,21 +1177,21 @@ tax:
         )
 
         namespace = {}
-        code = load_rac_program(entry).to_python_generator().generate()
+        code = load_rulespec_program(entry).to_python_generator().generate()
 
         exec(code, namespace)
 
         assert namespace["calculate"](wages=100)["tax"] == 10
 
-    def test_load_rac_program_resolves_package_alias_imports(self, tmp_path):
-        """Program loading resolves package-prefixed imports through rac.toml."""
-        (tmp_path / "rac.toml").write_text(
+    def test_load_rulespec_program_resolves_package_alias_imports(self, tmp_path):
+        """Program loading resolves package-prefixed imports through rulespec.toml."""
+        (tmp_path / "rulespec.toml").write_text(
             """
 [module_resolution.packages]
 tax = "./packages/tax"
 """
         )
-        shared = tmp_path / "packages" / "tax" / "shared.rac"
+        shared = tmp_path / "packages" / "tax" / "shared.yaml"
         shared.parent.mkdir(parents=True, exist_ok=True)
         shared.write_text(
             """
@@ -1164,10 +1202,10 @@ private_rate:
   from 2024-01-01: 0.1
 """
         )
-        entry = tmp_path / "main.rac"
+        entry = tmp_path / "main.yaml"
         entry.write_text(
             """
-from "tax/shared.rac" import rate
+from "tax/shared.yaml" import rate
 
 tax:
   entity: Person
@@ -1179,7 +1217,7 @@ tax:
         )
 
         namespace = {}
-        code = load_rac_program(entry).to_python_generator().generate()
+        code = load_rulespec_program(entry).to_python_generator().generate()
 
         exec(code, namespace)
 

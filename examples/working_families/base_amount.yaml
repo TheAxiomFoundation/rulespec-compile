@@ -4,8 +4,8 @@ source:
   citation: "Example Working Families Act § 101"
   accessed: 2025-01-01
 
-from "./phase_in_rate.rac" import rate
-from "./phase_in_cap.rac" import cap
+from "./phase_in_rate.yaml" import rate
+from "./phase_in_cap.yaml" import cap
 
 export base_amount
 

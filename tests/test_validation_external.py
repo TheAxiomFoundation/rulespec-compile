@@ -3,11 +3,11 @@ Unit tests for calculator edge cases and boundary conditions.
 
 NOTE: Validation against PolicyEngine-US is done via the validation module
 on CPS microdata, not via hand-built test cases. See:
-    rac-validate --help
-    python -m rac_compile.validation.cli --help
+    rulespec-validate --help
+    python -m rulespec_compile.validation.cli --help
 """
 
-from src.rac_compile.calculators import (
+from src.rulespec_compile.calculators import (
     calculate_actc,
     calculate_ctc,
     calculate_eitc,

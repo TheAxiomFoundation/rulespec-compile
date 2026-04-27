@@ -1,5 +1,5 @@
 """
-Tests for Python code generation from RAC DSL.
+Tests for Python code generation from RuleSpec.
 
 Following TDD: write tests first, then implement.
 """
@@ -10,7 +10,7 @@ class TestPythonCodeGenerator:
 
     def test_init_defaults(self):
         """Test generator initializes with sensible defaults."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator()
         assert gen.module_name == "calculator"
@@ -22,7 +22,7 @@ class TestPythonCodeGenerator:
 
     def test_add_input_number(self):
         """Test adding numeric input."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator()
         gen.add_input("income", 0, "float")
@@ -32,7 +32,7 @@ class TestPythonCodeGenerator:
 
     def test_add_input_boolean(self):
         """Test adding boolean input."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator()
         gen.add_input("is_joint", False, "bool")
@@ -41,7 +41,7 @@ class TestPythonCodeGenerator:
 
     def test_add_parameter(self):
         """Test adding parameter with values."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator()
         gen.add_parameter("rate", {0: 10, 1: 20}, "26 USC 1")
@@ -51,7 +51,7 @@ class TestPythonCodeGenerator:
 
     def test_add_variable(self):
         """Test adding calculated variable."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator()
         gen.add_variable(
@@ -71,7 +71,7 @@ class TestGenerateOutput:
 
     def test_generate_includes_header(self):
         """Generated code has docstring header."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator(module_name="Test Calculator")
         gen.add_input("x", 0)
@@ -80,11 +80,11 @@ class TestGenerateOutput:
 
         assert '"""' in code
         assert "Test Calculator" in code
-        assert "Auto-generated from RAC DSL" in code
+        assert "Auto-generated from RuleSpec" in code
 
     def test_generate_includes_params_dict(self):
         """Generated code includes PARAMS dictionary."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator()
         gen.add_parameter("credit_pct", {0: 7.65, 1: 34}, "26 USC 32(b)(1)")
@@ -96,7 +96,7 @@ class TestGenerateOutput:
 
     def test_generate_includes_calculate_function(self):
         """Generated code includes calculate function."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator()
         gen.add_input("income", 0, "float")
@@ -109,7 +109,7 @@ class TestGenerateOutput:
 
     def test_generate_supports_public_input_names_that_are_not_identifiers(self):
         """Qualified public input names fall back to mapping-based Python inputs."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator()
         gen.add_input(
@@ -130,7 +130,7 @@ class TestGenerateOutput:
 
     def test_generate_returns_citations(self):
         """Generated code returns citation chain."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator()
         gen.add_parameter("rate", {0: 20}, "26 USC 1")
@@ -144,7 +144,7 @@ class TestGenerateOutput:
 
     def test_generate_includes_module_identity_in_citations(self):
         """Generated Python citations keep the leaf-derived source rule identity."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator()
         gen.add_parameter("rate", {0: 20}, "26 USC 1", module_identity="shared")
@@ -163,7 +163,7 @@ class TestGenerateOutput:
 
     def test_generate_no_provenance(self):
         """Can generate without provenance comments."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator(include_provenance=False)
         gen.add_parameter("rate", {0: 20}, "26 USC 1")
@@ -173,7 +173,7 @@ class TestGenerateOutput:
 
     def test_generate_without_type_hints(self):
         """Can generate Python without type hints."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator(type_hints=False)
         gen.add_input("income", 0, "float")
@@ -189,7 +189,7 @@ class TestGenerateEITCCalculator:
 
     def test_returns_valid_python(self):
         """Generated EITC calculator is valid Python."""
-        from src.rac_compile.python_generator import generate_eitc_calculator
+        from src.rulespec_compile.python_generator import generate_eitc_calculator
 
         code = generate_eitc_calculator()
         assert code
@@ -198,7 +198,7 @@ class TestGenerateEITCCalculator:
 
     def test_includes_all_eitc_params(self):
         """EITC calculator includes all required parameters."""
-        from src.rac_compile.python_generator import generate_eitc_calculator
+        from src.rulespec_compile.python_generator import generate_eitc_calculator
 
         code = generate_eitc_calculator()
         assert "credit_pct" in code
@@ -209,7 +209,7 @@ class TestGenerateEITCCalculator:
 
     def test_includes_statute_citations(self):
         """EITC calculator includes 26 USC 32 citations."""
-        from src.rac_compile.python_generator import generate_eitc_calculator
+        from src.rulespec_compile.python_generator import generate_eitc_calculator
 
         code = generate_eitc_calculator()
         assert "26 USC 32" in code
@@ -217,7 +217,7 @@ class TestGenerateEITCCalculator:
 
     def test_includes_guidance_citations(self):
         """EITC calculator includes IRS guidance citations."""
-        from src.rac_compile.python_generator import generate_eitc_calculator
+        from src.rulespec_compile.python_generator import generate_eitc_calculator
 
         code = generate_eitc_calculator()
         assert "Rev. Proc. 2024-40" in code
@@ -228,7 +228,7 @@ class TestPythonExecution:
 
     def test_generated_code_is_executable(self):
         """Generated code can be executed."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator()
         gen.add_input("x", 5, "int")
@@ -244,7 +244,7 @@ class TestPythonExecution:
 
     def test_multiline_formula_returns_trailing_expression(self):
         """Multiline formulas implicitly return a trailing Python expression."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator()
         gen.add_input("x", 0, "int")
@@ -257,7 +257,7 @@ class TestPythonExecution:
 
     def test_semicolon_block_returns_trailing_expression(self):
         """Same-line semicolon blocks are normalized before Python emission."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator()
         gen.add_input("x", 0, "int")
@@ -270,7 +270,7 @@ class TestPythonExecution:
 
     def test_block_preserves_explicit_return_without_space(self):
         """Explicit Python returns like return(x) stay valid in wrapped blocks."""
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         gen = PythonCodeGenerator()
         gen.add_input("x", 0, "int")
@@ -283,7 +283,7 @@ class TestPythonExecution:
 
     def test_eitc_calculator_execution(self):
         """EITC calculator executes and returns reasonable values."""
-        from src.rac_compile.python_generator import generate_eitc_calculator
+        from src.rulespec_compile.python_generator import generate_eitc_calculator
 
         code = generate_eitc_calculator()
         namespace = {}
@@ -312,8 +312,8 @@ class TestPythonVsJS:
 
     def test_simple_calculation_matches_js(self):
         """Python and JS generators produce equivalent results."""
-        from src.rac_compile.js_generator import JSCodeGenerator
-        from src.rac_compile.python_generator import PythonCodeGenerator
+        from src.rulespec_compile.js_generator import JSCodeGenerator
+        from src.rulespec_compile.python_generator import PythonCodeGenerator
 
         # Python version
         py_gen = PythonCodeGenerator()

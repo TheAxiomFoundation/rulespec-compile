@@ -1,8 +1,8 @@
 """
-JavaScript code generation from RAC DSL.
+JavaScript code generation from RuleSpec.
 
 Generates standalone JS calculators that can run in browsers
-without any backend - perfect for static sites like rules.foundation/demo.
+without any backend - suitable for static inspection and demo sites.
 """
 
 import re
@@ -42,7 +42,7 @@ class Output:
 
 class JSCodeGenerator:
     """
-    Generate standalone JavaScript calculators from RAC DSL.
+    Generate standalone JavaScript calculators from RuleSpec.
 
     Usage:
         gen = JSCodeGenerator()
@@ -129,7 +129,7 @@ class JSCodeGenerator:
 
         # Header with provenance
         lines.append("/**")
-        lines.append(f" * {self.module_name} - Auto-generated from RAC DSL")
+        lines.append(f" * {self.module_name} - Auto-generated from RuleSpec")
         lines.append(" * ")
         lines.append(" * This code runs entirely in the browser with full citation")
         lines.append(" * chain - every value traces back to authoritative law.")

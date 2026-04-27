@@ -1,4 +1,4 @@
-"""File-graph loading for multi-file RAC compilation."""
+"""File-graph loading for multi-file RuleSpec compilation."""
 
 from __future__ import annotations
 
@@ -17,19 +17,19 @@ from .parser import (
     ImportSpec,
     ParameterDef,
     ParserError,
-    RacFile,
+    RuleSpecFile,
     VariableBlock,
-    parse_rac,
+    parse_rulespec,
 )
 
 
 @dataclass(frozen=True)
-class RacProgram:
-    """A loaded RAC program rooted at one entry file."""
+class RuleSpecProgram:
+    """A loaded RuleSpec program rooted at one entry file."""
 
     entrypoint: Path
-    entry_file: RacFile
-    files: list[RacFile] = field(default_factory=list)
+    entry_file: RuleSpecFile
+    files: list[RuleSpecFile] = field(default_factory=list)
     resolver: ImportResolver | None = None
 
     @property
@@ -46,7 +46,7 @@ class RacProgram:
         outputs: list[str] | None = None,
     ):
         """Compile the merged program graph through the shared compile model."""
-        merged, entry_exports, output_variables = self._merged_rac_file()
+        merged, entry_exports, output_variables = self._merged_rulespec_file()
         selected_outputs, public_output_bindings = self._resolve_output_bindings(
             outputs=outputs,
             entry_exports=entry_exports,
@@ -119,9 +119,9 @@ class RacProgram:
             outputs=outputs,
         ).to_rust_generator()
 
-    def _merged_rac_file(self) -> tuple[RacFile, dict[str, str], set[str]]:
-        """Merge the loaded files into one synthetic RAC file and its exports."""
-        merged = RacFile(
+    def _merged_rulespec_file(self) -> tuple[RuleSpecFile, dict[str, str], set[str]]:
+        """Merge the loaded files into one synthetic RuleSpec file and its exports."""
+        merged = RuleSpecFile(
             source=self.entry_file.source,
             statute_text=self.entry_file.statute_text,
             origin=self.entrypoint,
@@ -129,23 +129,25 @@ class RacProgram:
         )
         module_identities = _build_module_identities(self.files, self.entrypoint)
         internal_symbols = {
-            _file_origin(rac_file, self.entrypoint): _build_module_internal_symbols(
-                rac_file,
+            _file_origin(
+                rulespec_file, self.entrypoint
+            ): _build_module_internal_symbols(
+                rulespec_file,
                 ""
-                if _file_origin(rac_file, self.entrypoint) == self.entrypoint
-                else module_identities[_file_origin(rac_file, self.entrypoint)],
+                if _file_origin(rulespec_file, self.entrypoint) == self.entrypoint
+                else module_identities[_file_origin(rulespec_file, self.entrypoint)],
             )
-            for rac_file in self.files
+            for rulespec_file in self.files
         }
         _validate_internal_symbol_uniqueness(internal_symbols)
         module_exports: dict[Path, dict[str, str]] = {}
         output_variables: set[str] = set()
 
-        for rac_file in self.files:
-            origin = _file_origin(rac_file, self.entrypoint)
-            computed_rule_names = {rule.name for rule in rac_file.computed_rules}
+        for rulespec_file in self.files:
+            origin = _file_origin(rulespec_file, self.entrypoint)
+            computed_rule_names = {rule.name for rule in rulespec_file.computed_rules}
             module_exports[origin] = _build_module_exports(
-                rac_file=rac_file,
+                rulespec_file=rulespec_file,
                 origin=origin,
                 internal_symbols=internal_symbols[origin],
                 module_exports=module_exports,
@@ -155,20 +157,20 @@ class RacProgram:
             base_qualified_bindings: dict[str, dict[str, str]] = {}
             _apply_import_specs(
                 importer=origin,
-                import_specs=_local_import_specs(rac_file),
+                import_specs=_local_import_specs(rulespec_file),
                 resolver=self.resolver,
                 module_exports=module_exports,
                 unqualified_bindings=base_unqualified_bindings,
                 qualified_bindings=base_qualified_bindings,
             )
 
-            for name, parameter in rac_file.parameters.items():
+            for name, parameter in rulespec_file.parameters.items():
                 merged.parameters[internal_symbols[origin][name]] = _copy_parameter(
                     parameter,
                     internal_name=internal_symbols[origin][name],
                 )
 
-            for variable in rac_file.variables:
+            for variable in rulespec_file.variables:
                 internal_name = internal_symbols[origin][variable.name]
                 variable_unqualified_bindings = dict(base_unqualified_bindings)
                 variable_qualified_bindings = {
@@ -204,7 +206,7 @@ class RacProgram:
     ) -> tuple[list[str], list[tuple[str, str]]]:
         """Resolve requested public outputs against the entry module surface."""
         if entry_exports is None or output_variables is None:
-            _, entry_exports, output_variables = self._merged_rac_file()
+            _, entry_exports, output_variables = self._merged_rulespec_file()
 
         explicit_public_surface = bool(
             self.entry_file.export_specs or self.entry_file.re_export_specs
@@ -241,14 +243,14 @@ class RacProgram:
         ]
 
 
-def load_rac_program(
+def load_rulespec_program(
     entry_path: str | Path,
     module_roots: list[Path] | tuple[Path, ...] | None = None,
     module_packages: dict[str, Path] | None = None,
-) -> RacProgram:
-    """Load a RAC program rooted at one entry file and its imports."""
+) -> RuleSpecProgram:
+    """Load a RuleSpec program rooted at one entry file and its imports."""
     resolved_entry = Path(entry_path).expanduser().resolve()
-    _validate_rac_path(resolved_entry, subject="Entry file")
+    _validate_rulespec_path(resolved_entry, subject="Entry file")
     try:
         resolver = build_import_resolver(
             resolved_entry,
@@ -257,9 +259,9 @@ def load_rac_program(
         )
     except ModuleResolutionError as exc:
         raise CompilationError(str(exc)) from exc
-    loaded: dict[Path, RacFile] = {}
+    loaded: dict[Path, RuleSpecFile] = {}
     visiting: list[Path] = []
-    ordered: list[RacFile] = []
+    ordered: list[RuleSpecFile] = []
 
     def visit(path: Path) -> None:
         if path in loaded:
@@ -267,7 +269,7 @@ def load_rac_program(
         if path in visiting:
             cycle = " -> ".join(str(part) for part in [*visiting, path])
             raise CompilationError(f"Import cycle detected: {cycle}.")
-        _validate_rac_path(path, subject="Imported file")
+        _validate_rulespec_path(path, subject="Imported file")
 
         try:
             content = path.read_text()
@@ -278,25 +280,25 @@ def load_rac_program(
             ) from exc
         except OSError as exc:
             raise CompilationError(
-                f"Could not read imported RAC file '{path}': {exc}."
+                f"Could not read imported RuleSpec file '{path}': {exc}."
             ) from exc
 
         visiting.append(path)
         try:
-            rac_file = parse_rac(content, origin=path)
+            rulespec_file = parse_rulespec(content, origin=path)
         except ParserError as exc:
             raise CompilationError(
-                f"Could not parse RAC file '{path}': {exc}."
+                f"Could not parse RuleSpec file '{path}': {exc}."
             ) from exc
-        for import_path in _dependency_import_paths(rac_file):
+        for import_path in _dependency_import_paths(rulespec_file):
             visit(_resolve_import_path(import_path, path, resolver))
         visiting.pop()
 
-        loaded[path] = rac_file
-        ordered.append(rac_file)
+        loaded[path] = rulespec_file
+        ordered.append(rulespec_file)
 
     visit(resolved_entry)
-    return RacProgram(
+    return RuleSpecProgram(
         entrypoint=resolved_entry,
         entry_file=loaded[resolved_entry],
         files=ordered,
@@ -304,20 +306,22 @@ def load_rac_program(
     )
 
 
-def _validate_rac_path(path: Path, *, subject: str) -> None:
-    """Require program files to use the current `.rac` extension."""
-    if path.suffix != ".rac":
-        raise CompilationError(f"{subject} '{path}' must use the .rac extension.")
+def _validate_rulespec_path(path: Path, *, subject: str) -> None:
+    """Require program files to use the current `.yaml` extension."""
+    if path.suffix != ".yaml":
+        raise CompilationError(f"{subject} '{path}' must use the .yaml extension.")
 
 
-def _build_module_identities(files: list[RacFile], entrypoint: Path) -> dict[Path, str]:
+def _build_module_identities(
+    files: list[RuleSpecFile], entrypoint: Path
+) -> dict[Path, str]:
     """Assign stable leaf-derived identities to each loaded file."""
     identities: dict[Path, str] = {}
     seen_by_identity: dict[str, Path] = {}
     seen_by_key: dict[str, tuple[str, Path]] = {}
-    for rac_file in files:
-        origin = _file_origin(rac_file, entrypoint)
-        module_identity = rac_file.resolved_module_identity
+    for rulespec_file in files:
+        origin = _file_origin(rulespec_file, entrypoint)
+        module_identity = rulespec_file.resolved_module_identity
         if not module_identity:
             raise CompilationError(
                 f"Could not derive a module identity for '{origin}'."
@@ -325,14 +329,14 @@ def _build_module_identities(files: list[RacFile], entrypoint: Path) -> dict[Pat
         existing = seen_by_identity.get(module_identity)
         if existing is not None and existing != origin:
             raise CompilationError(
-                "Module identity collision: two RAC files resolve to the same "
+                "Module identity collision: two RuleSpec files resolve to the same "
                 f"module identity '{module_identity}'.\n"
                 f"  - first file:  {existing}\n"
                 f"  - second file: {origin}\n"
                 "Module identities must be unique within one loaded program "
                 "because they key into imports, bindings, lowered metadata, and "
                 "citations. To resolve, rename one of the files (for canonical "
-                "RAC trees) or move one into a distinct subsection leaf so the "
+                "RuleSpec trees) or move one into a distinct subsection leaf so the "
                 "leaf-derived identity differs."
             )
         seen_by_identity[module_identity] = origin
@@ -357,15 +361,15 @@ def _build_module_identities(files: list[RacFile], entrypoint: Path) -> dict[Pat
 
 
 def _build_module_internal_symbols(
-    rac_file: RacFile,
+    rulespec_file: RuleSpecFile,
     module_identity: str,
 ) -> dict[str, str]:
     """Build the full internal symbol map for one file."""
     symbols: dict[str, str] = {}
     module_key = _module_key(module_identity) if module_identity else ""
-    for name in rac_file.parameters:
+    for name in rulespec_file.parameters:
         symbols[name] = _export_name(symbols, name, module_key, subject="parameter")
-    for variable in rac_file.variables:
+    for variable in rulespec_file.variables:
         symbols[variable.name] = _export_name(
             symbols,
             variable.name,
@@ -376,18 +380,18 @@ def _build_module_internal_symbols(
 
 
 def _build_module_exports(
-    rac_file: RacFile,
+    rulespec_file: RuleSpecFile,
     origin: Path,
     internal_symbols: dict[str, str],
     module_exports: dict[Path, dict[str, str]],
     resolver: ImportResolver | None,
 ) -> dict[str, str]:
     """Build the exported symbol map for one file."""
-    if not rac_file.export_specs:
+    if not rulespec_file.export_specs:
         exports = dict(internal_symbols)
     else:
         exports = {}
-        for export_spec in rac_file.export_specs:
+        for export_spec in rulespec_file.export_specs:
             public_name = export_spec.public_name
             try:
                 internal_name = internal_symbols[export_spec.name]
@@ -403,7 +407,7 @@ def _build_module_exports(
                 )
             exports[public_name] = internal_name
 
-    for re_export_spec in rac_file.re_export_specs:
+    for re_export_spec in rulespec_file.re_export_specs:
         target = _resolve_import_path(re_export_spec.path, origin, resolver)
         try:
             target_exports = module_exports[target]
@@ -562,24 +566,26 @@ def _copy_variable(
     )
 
 
-def _file_origin(rac_file: RacFile, entrypoint: Path) -> Path:
+def _file_origin(rulespec_file: RuleSpecFile, entrypoint: Path) -> Path:
     """Return the on-disk path for a loaded file."""
-    return rac_file.origin or entrypoint
+    return rulespec_file.origin or entrypoint
 
 
-def _local_import_specs(rac_file: RacFile) -> list[ImportSpec]:
+def _local_import_specs(rulespec_file: RuleSpecFile) -> list[ImportSpec]:
     """Return normalized local import specs for a parsed file."""
-    if rac_file.import_specs:
-        return list(rac_file.import_specs)
-    return [ImportSpec(path=path) for path in rac_file.imports]
+    if rulespec_file.import_specs:
+        return list(rulespec_file.import_specs)
+    return [ImportSpec(path=path) for path in rulespec_file.imports]
 
 
-def _dependency_import_paths(rac_file: RacFile) -> list[str]:
+def _dependency_import_paths(rulespec_file: RuleSpecFile) -> list[str]:
     """Return all imported file paths, including re-export dependencies."""
-    paths = [import_spec.path for import_spec in _local_import_specs(rac_file)]
-    for variable in rac_file.variables:
+    paths = [import_spec.path for import_spec in _local_import_specs(rulespec_file)]
+    for variable in rulespec_file.variables:
         paths.extend(import_spec.path for import_spec in variable.import_specs)
-    paths.extend(re_export_spec.path for re_export_spec in rac_file.re_export_specs)
+    paths.extend(
+        re_export_spec.path for re_export_spec in rulespec_file.re_export_specs
+    )
     return _ordered_unique(paths)
 
 
@@ -700,7 +706,7 @@ def _resolve_citation_relative_import_path(
         ]
         if anchor_indices:
             repo_root = Path(*importer_parts[: min(anchor_indices)])
-            return (repo_root / candidate).with_suffix(".rac").resolve()
+            return (repo_root / candidate).with_suffix(".yaml").resolve()
 
     for root_name in root_names:
         if root_name not in importer_parts:
@@ -711,7 +717,7 @@ def _resolve_citation_relative_import_path(
         if len(candidate.parts) == 2:
             title, section = candidate.parts
             target_path = Path(title) / section / section
-        return (repo_root / root_name / target_path).with_suffix(".rac").resolve()
+        return (repo_root / root_name / target_path).with_suffix(".yaml").resolve()
     return None
 
 
