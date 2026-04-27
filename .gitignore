@@ -42,3 +42,6 @@ htmlcov/
 
 # Validation outputs
 validation_output/
+
+# Local issue tracker state
+.beads/
