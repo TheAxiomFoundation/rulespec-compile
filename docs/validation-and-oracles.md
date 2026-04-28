@@ -26,7 +26,7 @@ The harness is the fast objective loop for compiler work. It checks:
 - shipped example oracles
 
 Opt into curated live-stack compatibility checks against sibling repos and
-artifacts such as `rules-us`, `rules-us-co`, and `autorulespec`:
+artifacts such as `rules-us`, `rules-us-co`, and `axiom-encode`:
 
 ```bash
 rulespec-compile harness --include-live

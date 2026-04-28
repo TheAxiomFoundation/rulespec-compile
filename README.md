@@ -83,7 +83,7 @@ rulespec-compile lower examples/working_families/benefit_amount.yaml --binding p
 rulespec-compile harness
 
 # Opt into curated compatibility checks against sibling live-stack RuleSpec files
-# and AutoRuleSpec artifacts
+# and Encoder artifacts
 rulespec-compile harness --include-live
 
 # Opt into external PolicyEngine-backed oracle checks (requires policyengine-us)
@@ -321,7 +321,7 @@ failing case first and then make it pass.
 - Use `rulespec-compile harness --json` for machine-readable output
 - Use repeated `--case NAME` to run a focused subset while developing a feature
 - The harness now also validates Rust when `rustc` is available locally
-- `rulespec-compile harness --include-live` opts into curated real-file compatibility checks against sibling repos such as `rules-us`, `rules-us-co`, and current AutoRuleSpec artifacts
+- `rulespec-compile harness --include-live` opts into curated real-file compatibility checks against sibling repos such as `rules-us`, `rules-us-co`, and current Encoder artifacts
 - `rulespec-compile harness --include-external` opts into PolicyEngine-backed oracle cases when `policyengine-us` is installed
 
 ### Validation

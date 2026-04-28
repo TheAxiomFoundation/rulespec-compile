@@ -83,7 +83,7 @@ Adapters would wrap each current shape:
   side-channel for injected provenance
 - `YamlBundleRuleSource` — native mapping from the existing YAML schema
 - `CompositeRuleSource` — ordered fallback across sources (e.g. test
-  overrides → checked-in YAML → Atlas service)
+  overrides → checked-in YAML → Axiom corpus service)
 
 `compile_model` would depend only on the protocol. Everything else becomes an
 adapter.
@@ -99,9 +99,9 @@ adapter.
    paths from `compile_model`.
 3. Add a `CompositeRuleSource` and wire the CLI `--bindings` flag to build
    one.
-4. Introduce an `AtlasRuleSource` (or equivalent) that talks to an external
+4. Introduce an `AxiomCorpusRuleSource` (or equivalent) that talks to an external
    source of truth, slotting in as the last adapter.
-5. Once Atlas is the primary source, downgrade local JSON/YAML overrides to
+5. Once the Axiom corpus is the primary source, downgrade local JSON/YAML overrides to
    test-only scope. At that point, consider renaming the legacy
    `rule_bindings.RuleResolver` dataclass to `StaticRuleResolver` for
    clarity, since the `RuleSource` protocol is the primary contract.
@@ -121,6 +121,6 @@ adapter.
 
 ## Next action
 
-Before writing code: confirm protocol shape with a real Atlas integration
-sketch, so we don't land a contract that the first real external source
-cannot satisfy.
+Before writing code: confirm protocol shape with a real Axiom corpus integration
+sketch, so we don't land a contract that the first real external source cannot
+satisfy.
