@@ -108,9 +108,7 @@ class TestRuleBindings:
         with pytest.raises(RuleBindingError, match="has only effective-dated bindings"):
             resolver.resolve(module_identity="shared", symbol="rate")
 
-    def test_load_rule_binding_file_rejects_removed_override_artifacts(
-        self, tmp_path
-    ):
+    def test_load_rule_binding_file_rejects_removed_override_artifacts(self, tmp_path):
         """Removed override-artifact YAML fails with migration guidance."""
         path = tmp_path / "artifact.yaml"
         path.write_text(

@@ -582,9 +582,7 @@ tax:
         outputs=["oasdi_wage_tax"],
         inputs={"wages": 100000},
         expected_input_names=["wages"],
-        expected_output_module_identities={
-            "oasdi_wage_tax": "statutes/26/3101/a"
-        },
+        expected_output_module_identities={"oasdi_wage_tax": "statutes/26/3101/a"},
         expected_outputs={"oasdi_wage_tax": 6200},
         live=True,
     ),
@@ -602,18 +600,14 @@ tax:
             "current_year_qualified_employee_health_insurance_costs": 20000,
             "qualified_wages_paid_or_incurred_during_1993": 70000,
             (
-                "qualified_employee_health_insurance_costs_paid_or_incurred_"
-                "during_1993"
+                "qualified_employee_health_insurance_costs_paid_or_incurred_during_1993"
             ): 10000,
         },
         expected_input_names=[
             "current_year_qualified_wages",
             "current_year_qualified_employee_health_insurance_costs",
             "qualified_wages_paid_or_incurred_during_1993",
-            (
-                "qualified_employee_health_insurance_costs_paid_or_incurred_"
-                "during_1993"
-            ),
+            ("qualified_employee_health_insurance_costs_paid_or_incurred_during_1993"),
         ],
         expected_output_module_identities={
             "indian_employment_credit": "statutes/26/45A/a"
