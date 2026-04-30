@@ -1687,7 +1687,7 @@ class TestCLIMainHarness:
                     category="live_stack",
                     passed=False,
                     status="failed",
-                    detail="Compatibility gap.",
+                    detail="Contract gap.",
                 )
             ],
         )
