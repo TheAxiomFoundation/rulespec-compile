@@ -1,12 +1,12 @@
-# Example Working Families Act § 101(b)
-
+format: rulespec/v1
 source:
-  citation: "Example Working Families Act § 101(b)"
-  accessed: 2025-01-01
-
-export cap
-
-cap:
-  source: "example/working_families/phase_in_cap"
+  citation: "Example Working Families Act \xA7 101(b)"
+  accessed: '2025-01-01'
+exports:
+- cap
+rules:
+- name: cap
+  kind: parameter
+  source: example/working_families/phase_in_cap
   values:
-    0: 1500
+    0: 1500.0

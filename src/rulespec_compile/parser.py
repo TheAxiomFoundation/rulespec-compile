@@ -1,7 +1,6 @@
 """Parser for RuleSpec files."""
 
 import re
-import textwrap
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -10,7 +9,6 @@ from typing import Any, Optional
 import yaml
 
 from .rule_bindings import (
-    RuleBinding,
     RuleBindingBundle,
     RuleBindingEntry,
     RuleBindingError,
@@ -357,27 +355,10 @@ class RuleSpecFile:
             RuleBindingBundle(bindings=tuple(resolved_entries))
         ).to_resolver()
 
-    def resolve_parameter_overrides(
-        self,
-        parameter_overrides: (
-            dict[str, Any] | RuleBindingBundle | RuleResolver | None
-        ) = None,
-    ) -> dict[str, RuleBinding]:
-        """Compatibility wrapper returning undated rule bindings by display name."""
-        resolver = self.resolve_rule_bindings(parameter_overrides)
-        return {
-            entry.target.display_name: entry.binding
-            for entry in resolver.bindings
-            if entry.effective_date is None
-        }
-
     def to_compile_model(
         self,
         effective_date: date | str | None = None,
         rule_bindings: dict[str, Any] | RuleBindingBundle | RuleResolver | None = None,
-        parameter_overrides: (
-            dict[str, Any] | RuleBindingBundle | RuleResolver | None
-        ) = None,
         outputs: list[str] | None = None,
     ):
         """Convert to the shared compile model for generic compilation."""
@@ -393,17 +374,15 @@ class RuleSpecFile:
             return load_rulespec_program(self.origin).to_compile_model(
                 effective_date=effective_date,
                 rule_bindings=rule_bindings,
-                parameter_overrides=parameter_overrides,
                 outputs=outputs,
             )
 
         selected_outputs, public_output_bindings = self.resolve_output_bindings(outputs)
-        merged_rule_bindings = merge_rule_bindings(rule_bindings, parameter_overrides)
         return CompiledModule.from_rulespec_file(
             self,
             compile_context=CompileContext(
                 effective_date=_normalize_effective_date(effective_date),
-                external_rule_resolver=self.resolve_rule_bindings(merged_rule_bindings),
+                external_rule_resolver=self.resolve_rule_bindings(rule_bindings),
             ),
             selected_outputs=selected_outputs,
         ).with_public_outputs(public_output_bindings)
@@ -412,16 +391,12 @@ class RuleSpecFile:
         self,
         effective_date: date | str | None = None,
         rule_bindings: dict[str, Any] | RuleBindingBundle | RuleResolver | None = None,
-        parameter_overrides: (
-            dict[str, Any] | RuleBindingBundle | RuleResolver | None
-        ) = None,
         outputs: list[str] | None = None,
     ):
         """Convert to a serializable lowered program bundle."""
         return self.to_compile_model(
             effective_date=effective_date,
             rule_bindings=rule_bindings,
-            parameter_overrides=parameter_overrides,
             outputs=outputs,
         ).to_lowered_program()
 
@@ -429,16 +404,12 @@ class RuleSpecFile:
         self,
         effective_date: date | str | None = None,
         rule_bindings: dict[str, Any] | RuleBindingBundle | RuleResolver | None = None,
-        parameter_overrides: (
-            dict[str, Any] | RuleBindingBundle | RuleResolver | None
-        ) = None,
         outputs: list[str] | None = None,
     ):
         """Convert to JSCodeGenerator for JS output."""
         return self.to_compile_model(
             effective_date=effective_date,
             rule_bindings=rule_bindings,
-            parameter_overrides=parameter_overrides,
             outputs=outputs,
         ).to_js_generator()
 
@@ -446,16 +417,12 @@ class RuleSpecFile:
         self,
         effective_date: date | str | None = None,
         rule_bindings: dict[str, Any] | RuleBindingBundle | RuleResolver | None = None,
-        parameter_overrides: (
-            dict[str, Any] | RuleBindingBundle | RuleResolver | None
-        ) = None,
         outputs: list[str] | None = None,
     ):
         """Convert to PythonCodeGenerator for Python output."""
         return self.to_compile_model(
             effective_date=effective_date,
             rule_bindings=rule_bindings,
-            parameter_overrides=parameter_overrides,
             outputs=outputs,
         ).to_python_generator()
 
@@ -463,181 +430,20 @@ class RuleSpecFile:
         self,
         effective_date: date | str | None = None,
         rule_bindings: dict[str, Any] | RuleBindingBundle | RuleResolver | None = None,
-        parameter_overrides: (
-            dict[str, Any] | RuleBindingBundle | RuleResolver | None
-        ) = None,
         outputs: list[str] | None = None,
     ):
         """Convert to RustCodeGenerator for Rust output."""
         return self.to_compile_model(
             effective_date=effective_date,
             rule_bindings=rule_bindings,
-            parameter_overrides=parameter_overrides,
             outputs=outputs,
         ).to_rust_generator()
 
 
-_IMPORT_PATTERN = re.compile(
-    r'^import\s+["\']([^"\']+)["\'](?:\s+as\s+([A-Za-z_]\w*))?\s*$'
-)
-_SELECTIVE_IMPORT_PATTERN = re.compile(r'^from\s+["\']([^"\']+)["\']\s+import\s+(.+)$')
-_RE_EXPORT_PATTERN = re.compile(
-    r'^export\s+from\s+["\']([^"\']+)["\']\s+import\s+(.+)$'
-)
-_EXPORT_PATTERN = re.compile(r"^export\s+(.+)$")
-_DATE_PATTERN = re.compile(r"^from\s+(\d{4}-\d{2}-\d{2})\s*:\s*$")
-_DATE_SCALAR_PATTERN = re.compile(
-    r"^from\s+(\d{4}-\d{2}-\d{2})\s*:\s*(-?\d+(?:\.\d+)?)\s*$"
-)
-
-
 def parse_rulespec(content: str, origin: Path | str | None = None) -> RuleSpecFile:
-    """Parse .yaml file content into a RuleSpecFile."""
+    """Parse a `format: rulespec/v1` YAML file into a RuleSpecFile."""
     resolved_origin = Path(origin).resolve() if origin is not None else None
-    if _looks_like_rulespec_v1(content):
-        return _parse_rulespec_v1(content, resolved_origin)
-
-    result = RuleSpecFile(origin=resolved_origin)
-
-    lines = content.split("\n")
-    i = 0
-    parsed_definitions: list[ParameterDef | VariableBlock] = []
-
-    while i < len(lines):
-        line = lines[i]
-        stripped = line.strip()
-
-        if not stripped or stripped.startswith("#"):
-            i += 1
-            continue
-
-        if stripped.startswith('"""'):
-            text_lines = []
-            rest = stripped[3:]
-            if '"""' in rest:
-                result.statute_text = rest[: rest.index('"""')]
-                i += 1
-                continue
-            text_lines.append(rest)
-            i += 1
-            while i < len(lines):
-                if '"""' in lines[i]:
-                    before_close = lines[i][: lines[i].index('"""')]
-                    text_lines.append(before_close)
-                    break
-                text_lines.append(lines[i])
-                i += 1
-            result.statute_text = textwrap.dedent("\n".join(text_lines)).strip()
-            i += 1
-            continue
-
-        if stripped == "source:":
-            i, result.source = _parse_source_definition(lines, i + 1)
-            i += 1
-            continue
-
-        if (
-            stripped.startswith("source {")
-            or stripped.startswith("parameters {")
-            or re.match(r"parameter\s+\w+\s*\{", stripped)
-            or re.match(r"variable\s+\w+\s*\{", stripped)
-        ):
-            raise ParserError(
-                "Legacy brace syntax is no longer supported. Rewrite this file "
-                "using .yaml blocks such as 'source:' and 'name:'."
-            )
-
-        if stripped == "imports:":
-            i, import_specs = _parse_variable_imports_block(lines, i + 1)
-            for import_spec in import_specs:
-                result.imports.append(import_spec.path)
-                result.import_specs.append(import_spec)
-            continue
-
-        import_match = _IMPORT_PATTERN.match(stripped)
-        if import_match:
-            import_path = import_match.group(1)
-            import_alias = import_match.group(2)
-            result.imports.append(import_path)
-            result.import_specs.append(ImportSpec(path=import_path, alias=import_alias))
-            i += 1
-            continue
-
-        selective_import_match = _SELECTIVE_IMPORT_PATTERN.match(stripped)
-        if selective_import_match:
-            import_path = selective_import_match.group(1)
-            try:
-                symbols = _parse_import_symbol_list(selective_import_match.group(2))
-            except ValueError as exc:
-                raise ParserError(str(exc)) from exc
-            result.imports.append(import_path)
-            result.import_specs.append(
-                ImportSpec(path=import_path, symbols=tuple(symbols))
-            )
-            i += 1
-            continue
-
-        re_export_match = _RE_EXPORT_PATTERN.match(stripped)
-        if re_export_match:
-            export_path = re_export_match.group(1)
-            try:
-                symbols = _parse_import_symbol_list(re_export_match.group(2))
-            except ValueError as exc:
-                raise ParserError(str(exc)) from exc
-            result.re_export_specs.append(
-                ReExportSpec(path=export_path, symbols=tuple(symbols))
-            )
-            result.exports.extend(symbol.alias or symbol.name for symbol in symbols)
-            i += 1
-            continue
-
-        export_match = _EXPORT_PATTERN.match(stripped)
-        if export_match:
-            try:
-                export_specs = _parse_export_list(export_match.group(1))
-            except ValueError as exc:
-                raise ParserError(str(exc)) from exc
-            result.export_specs.extend(export_specs)
-            result.exports.extend(
-                export_spec.public_name for export_spec in export_specs
-            )
-            i += 1
-            continue
-
-        unified_match = re.match(r"^(\w+)\s*:\s*$", line)
-        if unified_match:
-            name = unified_match.group(1)
-            i += 1
-            i, definition = _parse_unified_definition(name, lines, i)
-            if isinstance(definition, ParameterDef):
-                result.parameters[name] = definition
-            elif isinstance(definition, VariableBlock):
-                result.variables.append(definition)
-            parsed_definitions.append(definition)
-            continue
-
-        i += 1
-
-    module_identity = result.resolved_module_identity
-    result.module_identity = module_identity
-    source_citation = result.source.citation if result.source else ""
-    for name, parameter in result.parameters.items():
-        if not parameter.name:
-            parameter.name = name
-        if not parameter.symbol_name:
-            parameter.symbol_name = name
-        if not parameter.module_identity:
-            parameter.module_identity = module_identity
-    for variable in result.variables:
-        if not variable.symbol_name:
-            variable.symbol_name = variable.name
-        if not variable.module_identity:
-            variable.module_identity = module_identity
-        if not variable.source_citation:
-            variable.source_citation = source_citation
-    result.rules = _definitions_to_rule_decls(parsed_definitions)
-
-    return result
+    return _parse_rulespec_v1(content, resolved_origin)
 
 
 def _derive_module_identity(origin: Path | None) -> str:
@@ -654,15 +460,6 @@ def _derive_module_identity(origin: Path | None) -> str:
     return resolved.stem
 
 
-def _looks_like_rulespec_v1(content: str) -> bool:
-    """Return whether content uses the current structured RuleSpec v1 envelope."""
-    try:
-        payload = yaml.safe_load(content)
-    except yaml.YAMLError:
-        return False
-    return isinstance(payload, dict) and payload.get("format") == "rulespec/v1"
-
-
 def _parse_rulespec_v1(content: str, origin: Path | None) -> RuleSpecFile:
     """Parse the current `format: rulespec/v1` YAML envelope."""
     try:
@@ -671,6 +468,13 @@ def _parse_rulespec_v1(content: str, origin: Path | None) -> RuleSpecFile:
         raise ParserError(f"Could not parse RuleSpec v1 YAML: {exc}.") from exc
     if not isinstance(payload, dict):
         raise ParserError("RuleSpec v1 payload must be a mapping.")
+    if payload.get("format") != "rulespec/v1":
+        raise ParserError("RuleSpec files must declare `format: rulespec/v1`.")
+    _reject_unknown_fields(
+        payload,
+        {"format", "module", "source", "imports", "exports", "re_exports", "rules"},
+        "top-level RuleSpec v1 payload",
+    )
 
     result = RuleSpecFile(origin=origin)
     module_identity = result.resolved_module_identity
@@ -682,25 +486,48 @@ def _parse_rulespec_v1(content: str, origin: Path | None) -> RuleSpecFile:
         if isinstance(summary, str) and summary.strip():
             result.statute_text = summary.strip()
 
-    source = payload.get("source")
-    if isinstance(source, dict):
+    if "source" in payload:
+        source = payload.get("source")
+        if not isinstance(source, dict):
+            raise ParserError("RuleSpec v1 field source must be a mapping.")
+        if not source:
+            raise ParserError("source: block must contain at least one field.")
+        _reject_unknown_fields(
+            source,
+            {"lawarchive", "citation", "accessed"},
+            "source block",
+        )
         result.source = SourceBlock(
             lawarchive=_optional_string(source.get("lawarchive")),
             citation=_optional_string(source.get("citation")),
             accessed=_optional_string(source.get("accessed")),
         )
 
-    imports = payload.get("imports")
-    if isinstance(imports, list):
-        for item in imports:
-            if not isinstance(item, str):
-                raise ParserError("RuleSpec v1 imports must be strings.")
-            result.imports.append(item)
-            result.import_specs.append(ImportSpec(path=item))
+    result.import_specs = _parse_rulespec_v1_imports(
+        payload.get("imports"),
+        field="imports",
+    )
+    result.imports = [import_spec.path for import_spec in result.import_specs]
+    result.export_specs = _parse_rulespec_v1_exports(payload.get("exports"))
+    result.exports = [export_spec.public_name for export_spec in result.export_specs]
+    result.re_export_specs = _parse_rulespec_v1_re_exports(
+        payload.get("re_exports"),
+    )
+    for re_export in result.re_export_specs:
+        result.exports.extend(
+            symbol.alias or symbol.name for symbol in re_export.symbols
+        )
 
-    rules = payload.get("rules")
-    if not isinstance(rules, list) or not rules:
-        raise ParserError("RuleSpec v1 payload must define a non-empty rules list.")
+    rules = payload.get("rules", [])
+    if not isinstance(rules, list):
+        raise ParserError("RuleSpec v1 payload field rules must be a list.")
+    if (
+        not rules
+        and not result.import_specs
+        and not result.export_specs
+        and not result.re_export_specs
+    ):
+        raise ParserError("RuleSpec v1 payload must define at least one rule.")
 
     parsed_definitions: list[ParameterDef | VariableBlock] = []
     for index, raw_rule in enumerate(rules):
@@ -723,17 +550,71 @@ def _parse_rulespec_v1_rule(
     index: int,
 ) -> ParameterDef | VariableBlock:
     """Parse one rule object from the current RuleSpec v1 envelope."""
+    _reject_unknown_fields(
+        raw_rule,
+        {
+            "name",
+            "kind",
+            "entity",
+            "period",
+            "dtype",
+            "label",
+            "description",
+            "unit",
+            "source",
+            "source_url",
+            "default",
+            "imports",
+            "values",
+            "versions",
+        },
+        f"rules[{index}]",
+    )
     name = _required_identifier(raw_rule.get("name"), f"rules[{index}].name")
     kind = _required_string(raw_rule.get("kind"), f"rules[{index}].kind")
     source = _optional_string(raw_rule.get("source")) or ""
     source_url = _optional_string(raw_rule.get("source_url"))
+    if kind != "parameter" and "values" in raw_rule:
+        raise ParserError(
+            f"RuleSpec v1 {kind} rule '{name}' cannot define parameter values."
+        )
+
     temporal = _parse_rulespec_v1_versions(raw_rule, name, kind)
 
+    if kind == "input":
+        if temporal:
+            raise ParserError(
+                f"RuleSpec v1 input rule '{name}' cannot define versions."
+            )
+        return VariableBlock(
+            name=name,
+            symbol_name=name,
+            entity=_optional_string(raw_rule.get("entity")),
+            period=_optional_string(raw_rule.get("period")),
+            dtype=_optional_string(raw_rule.get("dtype")),
+            label=_optional_string(raw_rule.get("label")),
+            description=_optional_string(raw_rule.get("description")),
+            unit=_optional_string(raw_rule.get("unit")),
+            reference=source_url,
+            source=source or (source_url or ""),
+            default=raw_rule.get("default"),
+            source_citation=source,
+            module_identity=module_identity,
+        )
+
     if kind == "parameter":
+        values = _parse_rulespec_v1_values(
+            raw_rule.get("values"), f"rules[{index}].values"
+        )
+        if values and temporal:
+            raise ParserError(
+                f"RuleSpec v1 parameter rule '{name}' cannot mix values and versions."
+            )
         return ParameterDef(
             name=name,
             symbol_name=name,
             source=source,
+            values=values,
             temporal=temporal,
             description=_optional_string(raw_rule.get("description")),
             unit=_optional_string(raw_rule.get("unit")),
@@ -744,7 +625,7 @@ def _parse_rulespec_v1_rule(
     if kind not in {"derived", "relation"}:
         raise ParserError(
             f"RuleSpec v1 rule '{name}' has unsupported kind {kind!r}. "
-            "Supported kinds are parameter, derived, and relation."
+            "Supported kinds are input, parameter, derived, and relation."
         )
 
     return VariableBlock(
@@ -758,6 +639,11 @@ def _parse_rulespec_v1_rule(
         unit=_optional_string(raw_rule.get("unit")),
         reference=source_url,
         source=source or (source_url or ""),
+        default=raw_rule.get("default"),
+        import_specs=_parse_rulespec_v1_imports(
+            raw_rule.get("imports"),
+            field=f"rules[{index}].imports",
+        ),
         temporal=temporal,
         source_citation=source,
         module_identity=module_identity,
@@ -770,9 +656,17 @@ def _parse_rulespec_v1_versions(
     kind: str,
 ) -> list[TemporalEntry]:
     """Parse `versions` entries from a RuleSpec v1 rule object."""
-    versions = raw_rule.get("versions")
-    if not isinstance(versions, list) or not versions:
+    versions = raw_rule.get("versions", [])
+    if versions is None:
+        versions = []
+    if not isinstance(versions, list):
+        raise ParserError(
+            f"RuleSpec v1 rule '{rule_name}' field versions must be a list."
+        )
+    if kind in {"derived", "relation"} and not versions:
         raise ParserError(f"RuleSpec v1 rule '{rule_name}' must define versions.")
+    if kind in {"parameter", "input"} and not versions:
+        return []
 
     temporal: list[TemporalEntry] = []
     for version_index, version in enumerate(versions):
@@ -781,11 +675,16 @@ def _parse_rulespec_v1_versions(
                 f"RuleSpec v1 rule '{rule_name}' versions[{version_index}] "
                 "must be a mapping."
             )
+        _reject_unknown_fields(
+            version,
+            {"effective_from", "formula", "value"},
+            f"rules[{rule_name}].versions[{version_index}]",
+        )
         effective_from = _required_string(
             version.get("effective_from"),
             f"rules[{rule_name}].versions[{version_index}].effective_from",
         )
-        formula = version.get("formula")
+        formula = version.get("formula", version.get("value"))
         if kind == "parameter":
             numeric_value = _numeric_formula_value(formula)
             if numeric_value is not None:
@@ -802,6 +701,141 @@ def _parse_rulespec_v1_versions(
     return temporal
 
 
+def _parse_rulespec_v1_values(value: Any, field: str) -> dict[int, float]:
+    """Parse a RuleSpec v1 indexed numeric value table."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ParserError(f"RuleSpec v1 field {field} must be a mapping.")
+    values: dict[int, float] = {}
+    for raw_index, raw_value in value.items():
+        try:
+            index = _parse_non_negative_integer_key(raw_index)
+            values[index] = float(raw_value)
+        except (TypeError, ValueError) as exc:
+            raise ParserError(
+                f"RuleSpec v1 field {field} must map integer indices to numbers."
+            ) from exc
+    return values
+
+
+def _parse_rulespec_v1_imports(value: Any, *, field: str) -> list[ImportSpec]:
+    """Parse top-level or per-rule RuleSpec v1 imports."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ParserError(f"RuleSpec v1 field {field} must be a list.")
+    imports: list[ImportSpec] = []
+    for index, item in enumerate(value):
+        item_field = f"{field}[{index}]"
+        if isinstance(item, str):
+            path = _required_string(item, item_field)
+            imports.append(ImportSpec(path=path))
+            continue
+        if not isinstance(item, dict):
+            raise ParserError(
+                f"RuleSpec v1 field {item_field} must be a string or mapping."
+            )
+        _reject_unknown_fields(item, {"path", "alias", "symbols"}, item_field)
+        path = _required_string(item.get("path"), f"{item_field}.path")
+        alias = _optional_identifier(item.get("alias"), f"{item_field}.alias")
+        symbols = tuple(
+            _parse_rulespec_v1_import_symbols(
+                item.get("symbols"),
+                field=f"{item_field}.symbols",
+            )
+        )
+        if alias and symbols:
+            raise ParserError(
+                f"RuleSpec v1 field {item_field} cannot define both alias and symbols."
+            )
+        imports.append(ImportSpec(path=path, alias=alias, symbols=symbols))
+    return imports
+
+
+def _parse_rulespec_v1_import_symbols(
+    value: Any,
+    *,
+    field: str,
+) -> list[ImportSymbolSpec]:
+    """Parse a RuleSpec v1 import/re-export symbol list."""
+    if value is None:
+        return []
+    if not isinstance(value, list) or not value:
+        raise ParserError(f"RuleSpec v1 field {field} must be a non-empty list.")
+    symbols: list[ImportSymbolSpec] = []
+    for index, item in enumerate(value):
+        item_field = f"{field}[{index}]"
+        if isinstance(item, str):
+            symbols.append(
+                ImportSymbolSpec(name=_required_identifier(item, item_field))
+            )
+            continue
+        if not isinstance(item, dict):
+            raise ParserError(
+                f"RuleSpec v1 field {item_field} must be a string or mapping."
+            )
+        _reject_unknown_fields(item, {"name", "alias"}, item_field)
+        symbols.append(
+            ImportSymbolSpec(
+                name=_required_identifier(item.get("name"), f"{item_field}.name"),
+                alias=_optional_identifier(item.get("alias"), f"{item_field}.alias"),
+            )
+        )
+    return symbols
+
+
+def _parse_rulespec_v1_exports(value: Any) -> list[ExportSpec]:
+    """Parse RuleSpec v1 public exports."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ParserError("RuleSpec v1 field exports must be a list.")
+    exports: list[ExportSpec] = []
+    for index, item in enumerate(value):
+        item_field = f"exports[{index}]"
+        if isinstance(item, str):
+            exports.append(ExportSpec(name=_required_identifier(item, item_field)))
+            continue
+        if not isinstance(item, dict):
+            raise ParserError(
+                f"RuleSpec v1 field {item_field} must be a string or mapping."
+            )
+        _reject_unknown_fields(item, {"name", "alias"}, item_field)
+        exports.append(
+            ExportSpec(
+                name=_required_identifier(item.get("name"), f"{item_field}.name"),
+                alias=_optional_identifier(item.get("alias"), f"{item_field}.alias"),
+            )
+        )
+    return exports
+
+
+def _parse_rulespec_v1_re_exports(value: Any) -> list[ReExportSpec]:
+    """Parse RuleSpec v1 re-export declarations."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ParserError("RuleSpec v1 field re_exports must be a list.")
+    re_exports: list[ReExportSpec] = []
+    for index, item in enumerate(value):
+        item_field = f"re_exports[{index}]"
+        if not isinstance(item, dict):
+            raise ParserError(f"RuleSpec v1 field {item_field} must be a mapping.")
+        _reject_unknown_fields(item, {"path", "symbols"}, item_field)
+        path = _required_string(item.get("path"), f"{item_field}.path")
+        symbols = tuple(
+            _parse_rulespec_v1_import_symbols(
+                item.get("symbols"),
+                field=f"{item_field}.symbols",
+            )
+        )
+        if not symbols:
+            raise ParserError(f"RuleSpec v1 field {item_field}.symbols is required.")
+        re_exports.append(ReExportSpec(path=path, symbols=symbols))
+    return re_exports
+
+
 def _numeric_formula_value(value: Any) -> float | None:
     """Return a numeric value for scalar RuleSpec v1 formulas when possible."""
     if isinstance(value, bool):
@@ -813,11 +847,31 @@ def _numeric_formula_value(value: Any) -> float | None:
     return None
 
 
+def _parse_non_negative_integer_key(value: Any) -> int:
+    """Parse one non-negative integer mapping key."""
+    if isinstance(value, bool):
+        raise ValueError
+    if isinstance(value, int):
+        if value < 0:
+            raise ValueError
+        return value
+    if isinstance(value, str) and re.fullmatch(r"\d+", value.strip()):
+        return int(value.strip())
+    raise ValueError
+
+
 def _optional_string(value: Any) -> str | None:
     """Return a stripped string or None for absent values."""
     if value is None:
         return None
     return str(value).strip()
+
+
+def _optional_identifier(value: Any, field: str) -> str | None:
+    """Return an optional identifier value."""
+    if value is None:
+        return None
+    return _required_identifier(value, field)
 
 
 def _required_string(value: Any, field: str) -> str:
@@ -836,6 +890,18 @@ def _required_identifier(value: Any, field: str) -> str:
     return normalized
 
 
+def _reject_unknown_fields(
+    payload: dict[str, Any],
+    allowed: set[str],
+    subject: str,
+) -> None:
+    """Reject unknown RuleSpec v1 fields."""
+    unknown = sorted(set(payload) - allowed)
+    if unknown:
+        names = ", ".join(unknown)
+        raise ParserError(f"Unknown field(s) in {subject}: {names}.")
+
+
 def _resolve_rule_binding_name(
     target: RuleBindingTarget,
     *,
@@ -844,7 +910,7 @@ def _resolve_rule_binding_name(
     bare_targets: dict[str, list[str]],
     available_targets: dict[str, RuleBindingTarget],
 ) -> str:
-    """Resolve a user-facing parameter binding target to one internal name."""
+    """Resolve a user-facing rule binding target to one internal name."""
     requested_name = target.display_name
     if not target.module_identity and target.symbol in exact_names:
         return target.symbol
@@ -881,188 +947,9 @@ def _normalize_effective_date(value: date | str | None) -> date | None:
     return date.fromisoformat(value)
 
 
-def _parse_import_symbol_list(value: str) -> list[ImportSymbolSpec]:
-    """Parse `name` and `name as alias` entries from a selective import."""
-    symbols: list[ImportSymbolSpec] = []
-    for item in value.split(","):
-        stripped = item.strip()
-        if not stripped:
-            continue
-        match = re.fullmatch(
-            r"([A-Za-z_]\w*)(?:\s+as\s+([A-Za-z_]\w*))?",
-            stripped,
-        )
-        if match is None:
-            raise ValueError(f"Invalid selective import item '{stripped}'.")
-        symbols.append(ImportSymbolSpec(name=match.group(1), alias=match.group(2)))
-    if not symbols:
-        raise ValueError("Selective imports must name at least one symbol.")
-    return symbols
-
-
-def _parse_export_list(value: str) -> list[ExportSpec]:
-    """Parse a comma-separated export declaration."""
-    names: list[ExportSpec] = []
-    for item in value.split(","):
-        stripped = item.strip()
-        if not stripped:
-            continue
-        match = re.fullmatch(
-            r"([A-Za-z_]\w*)(?:\s+as\s+([A-Za-z_]\w*))?",
-            stripped,
-        )
-        if match is None:
-            raise ValueError(f"Invalid export name '{stripped}'.")
-        names.append(ExportSpec(name=match.group(1), alias=match.group(2)))
-    if not names:
-        raise ValueError("Export declarations must name at least one symbol.")
-    return names
-
-
 def _ordered_unique(names: list[str]) -> list[str]:
     """Return names in first-seen order with duplicates removed."""
     return list(dict.fromkeys(names))
-
-
-def _collect_indented_block(lines: list[str], start: int) -> tuple[int, str]:
-    """Collect one indented block and return the next unread line index."""
-    block_lines: list[str] = []
-    block_indent: int | None = None
-    i = start
-
-    while i < len(lines):
-        line = lines[i]
-        stripped = line.strip()
-        if not stripped:
-            if block_indent is not None:
-                block_lines.append("")
-            i += 1
-            continue
-
-        indent = len(line) - len(line.lstrip())
-        if block_indent is None:
-            if indent == 0:
-                break
-            block_indent = indent
-        elif indent < block_indent:
-            break
-
-        block_lines.append(line)
-        i += 1
-
-    while block_lines and not block_lines[-1].strip():
-        block_lines.pop()
-
-    return i, textwrap.dedent("\n".join(block_lines)).strip()
-
-
-def _parse_unified_definition(
-    name: str, lines: list[str], start: int
-) -> tuple[int, "ParameterDef | VariableBlock"]:
-    """Parse a unified definition block starting after the 'name:' line.
-
-    Returns (next line index, parsed ParameterDef or VariableBlock).
-    """
-    attrs: dict[str, str] = {}
-    temporal: list[TemporalEntry] = []
-    import_specs: list[ImportSpec] = []
-    values: dict[int, float] = {}
-    i = start
-
-    while i < len(lines):
-        line = lines[i]
-        if line and not line[0].isspace() and line.strip():
-            break
-
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            i += 1
-            continue
-
-        scalar_match = _DATE_SCALAR_PATTERN.match(stripped)
-        if scalar_match:
-            temporal.append(
-                TemporalEntry(
-                    from_date=scalar_match.group(1),
-                    value=float(scalar_match.group(2)),
-                )
-            )
-            i += 1
-            continue
-
-        date_match = _DATE_PATTERN.match(stripped)
-        if date_match:
-            date = date_match.group(1)
-            i += 1
-            i, entry = _collect_temporal_block(date, lines, i)
-            temporal.append(entry)
-            continue
-
-        if stripped == "values:":
-            i, values = _parse_values_block(lines, i + 1)
-            continue
-
-        if stripped == "imports:":
-            i, import_specs = _parse_variable_imports_block(lines, i + 1)
-            continue
-
-        attr_match = re.match(r"(\w+)\s*:\s*(.+)", stripped)
-        if attr_match:
-            attrs[attr_match.group(1)] = attr_match.group(2).strip().strip('"')
-            i += 1
-            continue
-
-        i += 1
-
-    has_temporal_code = any(entry.code for entry in temporal)
-    if (
-        any(k in attrs for k in ("entity", "period", "dtype", "formula", "default"))
-        or import_specs
-        or has_temporal_code
-    ):
-        if values:
-            raise ParserError(
-                f"Variable '{name}' cannot define a parameter values block."
-            )
-        return i, VariableBlock(
-            name=name,
-            symbol_name=name,
-            entity=attrs.get("entity"),
-            period=attrs.get("period"),
-            dtype=attrs.get("dtype"),
-            label=attrs.get("label"),
-            description=attrs.get("description"),
-            unit=attrs.get("unit"),
-            reference=attrs.get("reference"),
-            source=attrs.get("source", attrs.get("reference", "")),
-            default=_parse_default_value(attrs["default"])
-            if "default" in attrs
-            else None,
-            import_specs=list(import_specs),
-            formula=attrs.get("formula", ""),
-            temporal=temporal,
-        )
-
-    if values and temporal:
-        raise ParserError(
-            f"Parameter '{name}' cannot mix a values block with temporal entries."
-        )
-
-    return i, ParameterDef(
-        name=name,
-        symbol_name=name,
-        source=attrs.get("source", attrs.get("reference", "")),
-        description=attrs.get("description"),
-        unit=attrs.get("unit"),
-        reference=attrs.get("reference"),
-        temporal=temporal,
-        values=values
-        or {
-            idx: entry.value
-            for idx, entry in enumerate(temporal)
-            if entry.value is not None
-        },
-    )
 
 
 def _definitions_to_rule_decls(
@@ -1108,125 +995,3 @@ def _definitions_to_rule_decls(
             )
         )
     return rule_decls
-
-
-def _collect_temporal_block(
-    date: str, lines: list[str], start: int
-) -> tuple[int, TemporalEntry]:
-    """Collect an indented code block under a 'from date:' line."""
-    i, code = _collect_indented_block(lines, start)
-
-    try:
-        return i, TemporalEntry(from_date=date, value=float(code))
-    except ValueError:
-        return i, TemporalEntry(from_date=date, code=code)
-
-
-def _parse_source_block(content: str) -> SourceBlock:
-    """Parse source block content."""
-    source = SourceBlock()
-    for line in content.split("\n"):
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-
-        if ":" in line:
-            key, value = line.split(":", 1)
-            key = key.strip()
-            value = value.strip().strip('"')
-
-            if key == "lawarchive":
-                source.lawarchive = value
-            elif key == "citation":
-                source.citation = value
-            elif key == "accessed":
-                source.accessed = value
-
-    return source
-
-
-def _parse_source_definition(lines: list[str], start: int) -> tuple[int, SourceBlock]:
-    """Parse a top-level `source:` block."""
-    i, block = _collect_indented_block(lines, start)
-    if not block:
-        raise ParserError("source: block must contain at least one field.")
-    return i - 1, _parse_source_block(block)
-
-
-def _parse_values_block(lines: list[str], start: int) -> tuple[int, dict[int, float]]:
-    """Parse an indented parameter values block."""
-    i, block = _collect_indented_block(lines, start)
-    if not block:
-        raise ParserError("values: block must contain at least one indexed value.")
-
-    values: dict[int, float] = {}
-    for line in block.split("\n"):
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        match = re.fullmatch(r"(\d+)\s*:\s*(-?\d+(?:\.\d+)?)", stripped)
-        if match is None:
-            raise ParserError(
-                f"Invalid parameter values entry '{stripped}'. Use INDEX: NUMBER."
-            )
-        values[int(match.group(1))] = float(match.group(2))
-
-    if not values:
-        raise ParserError("values: block must contain at least one indexed value.")
-
-    return i, values
-
-
-def _parse_default_value(value: str) -> Any:
-    """Parse one variable default value from inline RuleSpec metadata."""
-    normalized = value.strip()
-    lowered = normalized.lower()
-    if lowered == "true":
-        return True
-    if lowered == "false":
-        return False
-    if re.fullmatch(r"-?\d+", normalized):
-        return int(normalized)
-    if re.fullmatch(r"-?\d+(?:\.\d+)?", normalized):
-        return float(normalized)
-    return normalized
-
-
-def _parse_variable_imports_block(
-    lines: list[str],
-    start: int,
-) -> tuple[int, list[ImportSpec]]:
-    """Parse one per-variable `imports:` block."""
-    i, block = _collect_indented_block(lines, start)
-    if not block:
-        raise ParserError("imports: block must contain at least one import.")
-
-    specs: list[ImportSpec] = []
-    for line in block.split("\n"):
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if not stripped.startswith("- "):
-            raise ParserError(
-                f"Invalid imports entry '{stripped}'. Use '- path#symbol' syntax."
-            )
-        item = stripped[2:].strip()
-        match = re.fullmatch(
-            r"([^#\s]+)#([A-Za-z_]\w*)(?:\s+as\s+([A-Za-z_]\w*))?",
-            item,
-        )
-        if match is None:
-            raise ParserError(
-                f"Invalid imports entry '{item}'. Use 'path#symbol' or "
-                "'path#symbol as alias'."
-            )
-        specs.append(
-            ImportSpec(
-                path=match.group(1),
-                symbols=(ImportSymbolSpec(name=match.group(2), alias=match.group(3)),),
-            )
-        )
-
-    if not specs:
-        raise ParserError("imports: block must contain at least one import.")
-    return i, specs

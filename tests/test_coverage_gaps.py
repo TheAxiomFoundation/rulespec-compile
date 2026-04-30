@@ -40,7 +40,7 @@ class TestJSGeneratorTypeScript:
         # Check result interface
         assert "interface CalculatorResult {" in code
         assert "tax: number;" in code
-        assert "citations:" in code
+        assert "citations: Array<" in code
 
         # Check function signature
         assert "function calculate(inputs: CalculatorInputs" in code
@@ -76,7 +76,8 @@ class TestJSGeneratorTypeScript:
         gen.add_variable("y", ["x"], "x * 2")
         code = gen.generate()
         # The param without source should not appear in citations
-        assert "rate:" in code
+        assert "rate: { 0: 10 }" in code
+        assert 'param: "rate"' not in code
 
 
 class TestJSGeneratorMainBlock:
@@ -184,13 +185,20 @@ class TestParserLine64:
 
 
 class TestParserInlineStatuteText:
-    """Test inline triple-quoted statute text on a single line."""
+    """Test compact module summary text."""
 
     def test_inline_statute_text(self):
-        """Triple-quoted text on a single line is parsed."""
+        """Inline module summary text is parsed."""
         from src.rulespec_compile.parser import parse_rulespec
 
-        rulespec = '"""This is inline statute text."""\n'
+        rulespec = """
+format: rulespec/v1
+module:
+  summary: This is inline statute text.
+rules:
+- name: placeholder
+  kind: input
+"""
         result = parse_rulespec(rulespec)
         assert result.statute_text == "This is inline statute text."
 
@@ -203,15 +211,16 @@ class TestParserLine232:
         from src.rulespec_compile.parser import parse_rulespec
 
         rulespec = """
-this is not a valid block
-still not a valid block
-
-x:
+format: rulespec/v1
+rules:
+- name: x
+  kind: derived
   entity: Person
   period: Year
   dtype: Integer
-  from 2024-01-01:
-    return 0
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return 0
 """
         result = parse_rulespec(rulespec)
         assert len(result.variables) == 1
@@ -226,10 +235,14 @@ class TestParserLine297:
         from src.rulespec_compile.parser import parse_rulespec
 
         rulespec = """
-rate:
-  source: "Test"
-  ??? this is not a valid attr line ???
-  from 2024-01-01: 0.30
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.3'
 """
         result = parse_rulespec(rulespec)
         assert "rate" in result.parameters
@@ -244,17 +257,20 @@ class TestParserLine368:
         from src.rulespec_compile.parser import parse_rulespec
 
         rulespec = """
+format: rulespec/v1
 source:
-  # A comment
-
-  citation: "Test Citation"
-  accessed: 2025-01-01
-tax:
+  citation: Test Citation
+  accessed: '2025-01-01'
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return 0
+  source: Test Citation
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return 0
 """
         result = parse_rulespec(rulespec)
         assert result.source.citation == "Test Citation"
@@ -268,15 +284,18 @@ class TestParserParameterEdgeCases:
         from src.rulespec_compile.parser import ParserError, parse_rulespec
 
         rulespec = """
-test_param:
-  source: "Test"
+format: rulespec/v1
+rules:
+- name: test_param
+  kind: parameter
+  source: Test
   values:
     0: 10
     bad_key: 20
     1: not_a_number
     2: 30
 """
-        with pytest.raises(ParserError, match="Invalid parameter values entry"):
+        with pytest.raises(ParserError, match="must map integer indices to numbers"):
             parse_rulespec(rulespec)
 
     def test_parameter_source_no_quotes(self):
@@ -284,10 +303,13 @@ test_param:
         from src.rulespec_compile.parser import parse_rulespec
 
         rulespec = """
-test_param:
+format: rulespec/v1
+rules:
+- name: test_param
+  kind: parameter
   source: some/path/to/source
   values:
-    0: 10
+    0: 10.0
 """
         result = parse_rulespec(rulespec)
         assert result.parameters["test_param"].source == "some/path/to/source"
@@ -297,9 +319,12 @@ test_param:
         from src.rulespec_compile.parser import parse_rulespec
 
         rulespec = """
-test_param:
+format: rulespec/v1
+rules:
+- name: test_param
+  kind: parameter
   values:
-    0: 10
+    0: 10.0
 """
         result = parse_rulespec(rulespec)
         param = result.parameters["test_param"]

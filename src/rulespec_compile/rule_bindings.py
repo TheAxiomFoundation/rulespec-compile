@@ -183,8 +183,6 @@ def normalize_rule_bindings(
         )
     if _looks_like_rule_bundle(value):
         return _parse_rule_binding_bundle(value, source_label="Rule bindings")
-    if _looks_like_legacy_parameter_bundle(value):
-        return _parse_legacy_parameter_bundle(value, source_label="Rule bindings")
     return RuleBindingBundle(bindings=tuple(_parse_plain_rule_map(value)))
 
 
@@ -241,22 +239,10 @@ def load_rule_bindings_file(path: Path | None) -> RuleBindingBundle:
             raw,
             source_label=f"Rule binding file '{path}'",
         )
-    if _looks_like_legacy_parameter_bundle(raw):
-        return _parse_legacy_parameter_bundle(
-            raw,
-            source_label=f"Rule binding file '{path}'",
-        )
-    if _looks_like_override_artifact(raw):
-        raise RuleBindingError(
-            f"Rule binding file '{path}' uses removed override-artifact syntax. "
-            "Rewrite it as a schema_version: 1 bundle with a 'bindings' list."
-        )
-    if path.suffix.lower() in {".yaml", ".yml"}:
-        raise RuleBindingError(
-            f"Rule binding file '{path}' is not a supported rule-binding file. "
-            "Expected a schema_version: 1 bundle with a 'bindings' list."
-        )
-    return RuleBindingBundle(bindings=tuple(_parse_plain_rule_map(raw)))
+    raise RuleBindingError(
+        f"Rule binding file '{path}' is not a supported rule-binding file. "
+        "Expected a schema_version: 1 bundle with a 'bindings' list."
+    )
 
 
 def _load_rule_binding_mapping(path: Path) -> Any:
@@ -315,33 +301,8 @@ def _parse_rule_binding_bundle(
     return RuleBindingBundle(schema_version=1, bindings=bindings, metadata=metadata)
 
 
-def _parse_legacy_parameter_bundle(
-    raw: dict[str, Any],
-    *,
-    source_label: str,
-) -> RuleBindingBundle:
-    """Parse the older `parameters`-enveloped compatibility form."""
-    schema_version = raw.get("schema_version", 1)
-    if schema_version != 1:
-        raise RuleBindingError(
-            f"{source_label} uses unsupported schema_version {schema_version}. "
-            "Expected 1."
-        )
-    parameters = raw.get("parameters", {})
-    if not isinstance(parameters, dict):
-        raise RuleBindingError(f"{source_label} has a non-object 'parameters' field.")
-    metadata = raw.get("metadata", {})
-    if not isinstance(metadata, dict):
-        raise RuleBindingError(f"{source_label} has a non-object 'metadata' field.")
-    return RuleBindingBundle(
-        schema_version=1,
-        bindings=tuple(_parse_plain_rule_map(parameters)),
-        metadata=metadata,
-    )
-
-
 def _parse_plain_rule_map(raw: dict[str, Any]) -> list[RuleBindingEntry]:
-    """Parse a compatibility map keyed by rule target name."""
+    """Parse a plain map keyed by rule target name."""
     entries: list[RuleBindingEntry] = []
     for name, payload in raw.items():
         target = RuleBindingTarget.parse(str(name))
@@ -416,25 +377,6 @@ def _looks_like_rule_bundle(raw: dict[str, Any]) -> bool:
     if not isinstance(raw["bindings"], list):
         return False
     return not (set(raw) - {"schema_version", "metadata", "bindings"})
-
-
-def _looks_like_legacy_parameter_bundle(raw: dict[str, Any]) -> bool:
-    """Return whether a mapping uses the older `parameters` bundle envelope."""
-    if "parameters" not in raw:
-        return False
-    if not isinstance(raw["parameters"], dict):
-        return False
-    return not (set(raw) - {"schema_version", "metadata", "parameters"})
-
-
-def _looks_like_override_artifact(raw: dict[str, Any]) -> bool:
-    """Return whether a mapping uses removed override-artifact syntax."""
-    for key, value in raw.items():
-        if key in {"source", "status"}:
-            continue
-        if isinstance(value, dict) and "overrides" in value:
-            return True
-    return False
 
 
 def _normalize_rule_binding(name: str, raw: Any) -> RuleBinding:

@@ -88,7 +88,7 @@ class TestGenerateOutput:
         gen.add_parameter("rate", {0: 10, 1: 20}, "Test Source")
         code = gen.generate()
         assert "const PARAMS = {" in code
-        assert "rate:" in code
+        assert "rate: { 0: 10, 1: 20 }" in code
         assert "0: 10" in code
         assert "// Test Source" in code
 
@@ -145,7 +145,7 @@ class TestGenerateOutput:
         gen.add_parameter("rate", {0: 10}, "26 USC 1")
         gen.add_variable("tax", [], "100", citation="26 USC 1(a)")
         code = gen.generate()
-        assert "citations:" in code
+        assert "citations: [" in code
         assert 'source: "26 USC 1"' in code
 
     def test_generate_includes_module_identity_in_citations(self):
@@ -179,7 +179,7 @@ class TestGenerateOutput:
         gen.add_parameter("b", {0: 2}, "Source B")
         gen.add_variable("c", [], "1", citation="Source C")
         code = gen.generate()
-        assert "Sources:" in code
+        assert " * Sources:" in code
         assert "Source A" in code
         assert "Source B" in code
         assert "Source C" in code
@@ -189,7 +189,7 @@ class TestGenerateOutput:
         gen = JSCodeGenerator(include_provenance=False)
         gen.add_parameter("a", {0: 1}, "Source A")
         code = gen.generate()
-        assert "Sources:" not in code
+        assert " * Sources:" not in code
 
     def test_generate_multiline_formula_returns_trailing_expression(self):
         """Multiline formulas implicitly return a trailing JS expression."""

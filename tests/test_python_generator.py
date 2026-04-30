@@ -169,7 +169,15 @@ class TestGenerateOutput:
         gen.add_parameter("rate", {0: 20}, "26 USC 1")
         code = gen.generate()
 
-        assert "Sources:" not in code
+        assert (
+            """
+format: rulespec/v1
+rules:
+- name: Sources
+  kind: input
+"""
+            not in code
+        )
 
     def test_generate_without_type_hints(self):
         """Can generate Python without type hints."""

@@ -1,18 +1,24 @@
-# Example Working Families Act § 101
-
+format: rulespec/v1
 source:
-  citation: "Example Working Families Act § 101"
-  accessed: 2025-01-01
-
-from "./phase_in_rate.yaml" import rate
-from "./phase_in_cap.yaml" import cap
-
-export base_amount
-
-base_amount:
+  citation: "Example Working Families Act \xA7 101"
+  accessed: '2025-01-01'
+imports:
+- path: ./phase_in_rate.yaml
+  symbols:
+  - rate
+- path: ./phase_in_cap.yaml
+  symbols:
+  - cap
+exports:
+- base_amount
+rules:
+- name: base_amount
+  kind: derived
   entity: TaxUnit
   period: Year
   dtype: Money
-  label: "Base Working Families Benefit"
-  from 2025-01-01:
-    return min(earned_income * rate, cap)
+  label: Base Working Families Benefit
+  source: "Example Working Families Act \xA7 101"
+  versions:
+  - effective_from: '2025-01-01'
+    formula: return min(earned_income * rate, cap)

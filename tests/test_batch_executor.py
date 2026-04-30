@@ -14,20 +14,25 @@ class TestBatchExecutor:
     def test_executes_indexed_parameters_and_conditionals(self):
         rulespec = parse_rulespec(
             """
-multiplier:
-  source: "Test"
+format: rulespec/v1
+rules:
+- name: multiplier
+  kind: parameter
+  source: Test
   values:
-    0: 1
-    1: 2
-    2: 3
-
-result:
+    0: 1.0
+    1: 2.0
+    2: 3.0
+- name: result
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    factor = multiplier[min(n_children, 2)]
-    return is_joint ? wages * factor : 0
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      factor = multiplier[min(n_children, 2)]
+      return is_joint ? wages * factor : 0
 """
         )
         program = rulespec.to_lowered_program(effective_date=date(2024, 1, 1))
@@ -48,16 +53,21 @@ result:
     def test_executes_if_statement_blocks_with_branch_locals(self):
         rulespec = parse_rulespec(
             """
-result:
+format: rulespec/v1
+rules:
+- name: result
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    if is_joint:
-      rate = 0.1
-    else:
-      rate = 0.2
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      if is_joint:
+        rate = 0.1
+      else:
+        rate = 0.2
+      return wages * rate
 """
         )
         program = rulespec.to_lowered_program(effective_date=date(2024, 1, 1))
@@ -72,20 +82,25 @@ result:
     def test_skips_inactive_if_branch_evaluation(self):
         rulespec = parse_rulespec(
             """
-threshold:
-  source: "Test"
+format: rulespec/v1
+rules:
+- name: threshold
+  kind: parameter
+  source: Test
   values:
-    0: 100
-
-result:
+    0: 100.0
+- name: result
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    if is_joint:
-      return wages
-    else:
-      return threshold[n_children]
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      if is_joint:
+        return wages
+      else:
+        return threshold[n_children]
 """
         )
         program = rulespec.to_lowered_program(effective_date=date(2024, 1, 1))
@@ -106,24 +121,29 @@ result:
     def test_short_circuits_boolean_and_ternary_branches(self):
         rulespec = parse_rulespec(
             """
-threshold:
-  source: "Test"
+format: rulespec/v1
+rules:
+- name: threshold
+  kind: parameter
+  source: Test
   values:
-    0: 100
-
-boolean_result:
+    0: 100.0
+- name: boolean_result
+  kind: derived
   entity: Person
   period: Year
   dtype: Bool
-  from 2024-01-01:
-    return is_joint and threshold[n_children] > 0
-
-money_result:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return is_joint and threshold[n_children] > 0
+- name: money_result
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return is_joint ? threshold[n_children] : wages
+  versions:
+  - effective_from: '2024-01-01'
+    formula: 'return is_joint ? threshold[n_children] : wages'
 """
         )
         program = rulespec.to_lowered_program(effective_date=date(2024, 1, 1))

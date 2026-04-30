@@ -105,7 +105,7 @@ class TestCompilerHarness:
         assert summary.results[0].status == "skipped"
 
     def test_run_compiler_harness_include_live_adds_live_cases(self):
-        """The opt-in live lane adds curated current-stack compatibility cases."""
+        """The opt-in live lane adds curated current-stack cases."""
         summary = run_compiler_harness(include_live=True)
         live_cases = [case for case in HARNESS_CASES if case.live]
         default_cases = [
@@ -154,7 +154,7 @@ class TestCompilerHarness:
         assert "requires" in result.detail
 
     def test_run_case_checks_expected_inputs_and_output_identity(self):
-        """Lowered bundle checks can validate structural compatibility expectations."""
+        """Lowered bundle checks can validate structural expectations."""
         case = HarnessCase(
             name="structural_lowering_contract",
             category="core",
@@ -162,12 +162,16 @@ class TestCompilerHarness:
                 "Structural lowered checks pass for expected inputs and identity."
             ),
             rulespec="""
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    wages * 0.1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: wages * 0.1
 """,
             inputs={"wages": 100},
             expected_outputs={"tax": 10},
@@ -188,12 +192,16 @@ tax:
             category="core",
             description="Structural lowered checks can focus on output identity.",
             rulespec="""
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    wages * 0.1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: wages * 0.1
 """,
             inputs={"wages": 100},
             expected_outputs={"tax": 10},

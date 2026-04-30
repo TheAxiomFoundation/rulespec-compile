@@ -15,10 +15,14 @@ class TestSourceBlock:
         """A `source:` block is parsed into a SourceBlock."""
         result = parse_rulespec(
             """
+format: rulespec/v1
 source:
   lawarchive: us/statute/26/32/2025-01-01
-  citation: "26 USC 32"
-  accessed: 2025-12-12
+  citation: 26 USC 32
+  accessed: '2025-12-12'
+rules:
+- name: placeholder
+  kind: input
 """
         )
 
@@ -31,12 +35,16 @@ source:
         """Files do not need source metadata."""
         result = parse_rulespec(
             """
-foo:
+format: rulespec/v1
+rules:
+- name: foo
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return 0
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return 0
 """
         )
 
@@ -47,13 +55,17 @@ foo:
         with pytest.raises(ParserError, match="source: block must contain"):
             parse_rulespec(
                 """
-source:
-foo:
+format: rulespec/v1
+source: {}
+rules:
+- name: foo
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return 0
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return 0
 """
             )
 
@@ -135,9 +147,14 @@ class TestParameterDefinitions:
         """Parameters can use temporal scalar entries."""
         result = parse_rulespec(
             """
-niit_rate:
-  source: "26 USC 1411"
-  from 2013-01-01: 0.038
+format: rulespec/v1
+rules:
+- name: niit_rate
+  kind: parameter
+  source: 26 USC 1411
+  versions:
+  - effective_from: '2013-01-01'
+    formula: '0.038'
 """
         )
 
@@ -151,29 +168,39 @@ niit_rate:
         """Parameters can have multiple temporal scalar entries."""
         result = parse_rulespec(
             """
-threshold:
-  source: "Rev. Proc. 2024-40"
-  from 2024-01-01: 250000
-  from 2023-01-01: 220000
-  from 2022-01-01: 200000
+format: rulespec/v1
+rules:
+- name: threshold
+  kind: parameter
+  source: Rev. Proc. 2024-40
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '250000'
+  - effective_from: '2023-01-01'
+    formula: '220000'
+  - effective_from: '2022-01-01'
+    formula: '200000'
 """
         )
 
         param = result.parameters["threshold"]
         assert [entry.value for entry in param.temporal] == [250000, 220000, 200000]
-        assert param.values == {0: 250000, 1: 220000, 2: 200000}
+        assert param.values == {}
 
     def test_parse_indexed_values_block(self):
         """Parameters can define indexed lookup tables with `values:`."""
         result = parse_rulespec(
             """
-credit_pct:
-  source: "26 USC 32(b)(1)"
+format: rulespec/v1
+rules:
+- name: credit_pct
+  kind: parameter
+  source: 26 USC 32(b)(1)
   values:
     0: 7.65
-    1: 34
-    2: 40
-    3: 45
+    1: 34.0
+    2: 40.0
+    3: 45.0
 """
         )
 
@@ -188,11 +215,16 @@ credit_pct:
         """Parameters keep description and unit metadata."""
         result = parse_rulespec(
             """
-contribution_rate:
-  description: "Household contribution as share of net income"
+format: rulespec/v1
+rules:
+- name: contribution_rate
+  kind: parameter
+  description: Household contribution as share of net income
   unit: rate
-  source: "USDA FNS"
-  from 2024-01-01: 0.30
+  source: USDA FNS
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.3'
 """
         )
 
@@ -203,10 +235,13 @@ contribution_rate:
 
     def test_invalid_values_block_fails_loudly(self):
         """Malformed indexed parameter tables are rejected."""
-        with pytest.raises(ParserError, match="Invalid parameter values entry"):
+        with pytest.raises(ParserError, match="must map integer indices to numbers"):
             parse_rulespec(
                 """
-credit_pct:
+format: rulespec/v1
+rules:
+- name: credit_pct
+  kind: parameter
   values:
     first: 7.65
 """
@@ -214,13 +249,18 @@ credit_pct:
 
     def test_rejects_mixed_values_and_temporal_entries(self):
         """Indexed tables and temporal entries cannot be mixed in one parameter."""
-        with pytest.raises(ParserError, match="cannot mix a values block"):
+        with pytest.raises(ParserError, match="cannot mix values and versions"):
             parse_rulespec(
                 """
-credit_pct:
+format: rulespec/v1
+rules:
+- name: credit_pct
+  kind: parameter
   values:
     0: 7.65
-  from 2024-01-01: 0.0765
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.0765'
 """
             )
 
@@ -232,15 +272,20 @@ class TestVariableDefinitions:
         """Variables can store a formula under a `from` entry."""
         result = parse_rulespec(
             """
-niit:
+format: rulespec/v1
+rules:
+- name: niit
+  kind: derived
   entity: TaxUnit
   period: Year
   dtype: Money
-  from 2013-01-01:
-    magi = agi + foreign_earned_income_exclusion
-    threshold = 200000
-    excess = max(0, magi - threshold)
-    return min(net_investment_income, excess) * 0.038
+  versions:
+  - effective_from: '2013-01-01'
+    formula: |-
+      magi = agi + foreign_earned_income_exclusion
+      threshold = 200000
+      excess = max(0, magi - threshold)
+      return min(net_investment_income, excess) * 0.038
 """
         )
 
@@ -256,15 +301,21 @@ niit:
         """Entity/period/dtype distinguishes variables from parameters."""
         result = parse_rulespec(
             """
-rate:
-  from 2024-01-01: 0.038
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.038'
+- name: tax
+  kind: derived
   entity: TaxUnit
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return income * 0.038
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return income * 0.038
 """
         )
 
@@ -275,13 +326,17 @@ tax:
         """Variables preserve label metadata."""
         result = parse_rulespec(
             """
-eitc:
+format: rulespec/v1
+rules:
+- name: eitc
+  kind: derived
   entity: TaxUnit
   period: Year
   dtype: Money
-  label: "Earned Income Tax Credit"
-  from 2025-01-01:
-    return max(0, earned_income * 0.34)
+  label: Earned Income Tax Credit
+  versions:
+  - effective_from: '2025-01-01'
+    formula: return max(0, earned_income * 0.34)
 """
         )
 
@@ -291,7 +346,10 @@ eitc:
         """No-formula variable defaults are preserved for declared inputs."""
         result = parse_rulespec(
             """
-is_us_citizen_national_or_resident:
+format: rulespec/v1
+rules:
+- name: is_us_citizen_national_or_resident
+  kind: input
   entity: Person
   period: Year
   dtype: Boolean
@@ -306,14 +364,19 @@ is_us_citizen_national_or_resident:
         """Entity-less rules with code blocks stay computed rules, not parameters."""
         result = parse_rulespec(
             """
-snap_self_employment_cost_exclusion:
-  label: "SNAP self-employment cost exclusion"
-  description: "Reduction for production costs"
-  from 2008-10-01:
-    min(
-      snap_nonfarm_self_employment_production_costs,
-      snap_nonfarm_self_employment_gross_income,
-    ) + snap_farm_self_employment_production_costs
+format: rulespec/v1
+rules:
+- name: snap_self_employment_cost_exclusion
+  kind: derived
+  label: SNAP self-employment cost exclusion
+  description: Reduction for production costs
+  versions:
+  - effective_from: '2008-10-01'
+    formula: |-
+      min(
+        snap_nonfarm_self_employment_production_costs,
+        snap_nonfarm_self_employment_gross_income,
+      ) + snap_farm_self_employment_production_costs
 """
         )
 
@@ -327,14 +390,18 @@ snap_self_employment_cost_exclusion:
         """Variables can define multiple dated formulas."""
         result = parse_rulespec(
             """
-credit:
+format: rulespec/v1
+rules:
+- name: credit
+  kind: derived
   entity: TaxUnit
   period: Year
   dtype: Money
-  from 2026-01-01:
-    return income * 0.10
-  from 2018-01-01:
-    return income * 0.15
+  versions:
+  - effective_from: '2026-01-01'
+    formula: return income * 0.10
+  - effective_from: '2018-01-01'
+    formula: return income * 0.15
 """
         )
 
@@ -349,15 +416,24 @@ credit:
         """Variables can declare per-rule imports with `path#symbol` syntax."""
         result = parse_rulespec(
             """
-first_reduction:
-  imports:
-    - 26/62#adjusted_gross_income
-    - 26/21/a/2#base_applicable_percentage as base_pct
+format: rulespec/v1
+rules:
+- name: first_reduction
+  kind: derived
   entity: TaxUnit
   period: Year
   dtype: Rate
-  from 2002-01-01:
-    max(0, adjusted_gross_income - base_pct)
+  imports:
+  - path: 26/62
+    symbols:
+    - adjusted_gross_income
+  - path: 26/21/a/2
+    symbols:
+    - name: base_applicable_percentage
+      alias: base_pct
+  versions:
+  - effective_from: '2002-01-01'
+    formula: max(0, adjusted_gross_income - base_pct)
 """
         )
 
@@ -368,10 +444,13 @@ first_reduction:
 
     def test_variable_rejects_parameter_values_block(self):
         """Variables cannot use the parameter `values:` table syntax."""
-        with pytest.raises(ParserError, match="cannot define a parameter values block"):
+        with pytest.raises(ParserError, match="cannot define parameter values"):
             parse_rulespec(
                 """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
@@ -389,15 +468,19 @@ class TestImportsAndExports:
         origin = tmp_path / "main.yaml"
         result = parse_rulespec(
             """
-import "./shared.yaml"
-import "../common/base.yaml"
-
-tax:
+format: rulespec/v1
+imports:
+- ./shared.yaml
+- ../common/base.yaml
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return 1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return 1
 """,
             origin=origin,
         )
@@ -410,8 +493,11 @@ tax:
         origin = tmp_path / "main.yaml"
         result = parse_rulespec(
             """
-import "./shared.yaml" as shared
-import "./base.yaml"
+format: rulespec/v1
+imports:
+- path: ./shared.yaml
+  alias: shared
+- ./base.yaml
 """,
             origin=origin,
         )
@@ -427,9 +513,14 @@ import "./base.yaml"
         origin = tmp_path / "main.yaml"
         result = parse_rulespec(
             """
+format: rulespec/v1
 imports:
-  - statutes/crs/26-2-703/12#is_individual_responsibility_contract
-  - regulations/9-CCR-2503-6/3.606.1/F#need_standard_for_assistance_unit
+- path: statutes/crs/26-2-703/12
+  symbols:
+  - is_individual_responsibility_contract
+- path: regulations/9-CCR-2503-6/3.606.1/F
+  symbols:
+  - need_standard_for_assistance_unit
 """,
             origin=origin,
         )
@@ -450,9 +541,22 @@ imports:
         origin = tmp_path / "main.yaml"
         result = parse_rulespec(
             """
-export tax as benefit_amount, taxable_income
-export from "./shared.yaml" import upstream_benefit as benefit_amount_2
-from "./shared.yaml" import rate, threshold as income_threshold
+format: rulespec/v1
+imports:
+- path: ./shared.yaml
+  symbols:
+  - rate
+  - name: threshold
+    alias: income_threshold
+exports:
+- name: tax
+  alias: benefit_amount
+- taxable_income
+re_exports:
+- path: ./shared.yaml
+  symbols:
+  - name: upstream_benefit
+    alias: benefit_amount_2
 """,
             origin=origin,
         )
@@ -483,12 +587,16 @@ class TestFormulaConversion:
         code = (
             parse_rulespec(
                 """
-x:
+format: rulespec/v1
+rules:
+- name: x
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return min(a, b)
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return min(a, b)
 """
             )
             .to_js_generator()
@@ -502,12 +610,16 @@ x:
         code = (
             parse_rulespec(
                 """
-x:
+format: rulespec/v1
+rules:
+- name: x
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return max(a, b)
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return max(a, b)
 """
             )
             .to_js_generator()
@@ -521,12 +633,16 @@ x:
         code = (
             parse_rulespec(
                 """
-x:
+format: rulespec/v1
+rules:
+- name: x
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return round(income)
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return round(income)
 """
             )
             .to_js_generator()
@@ -540,16 +656,20 @@ x:
         code = (
             parse_rulespec(
                 """
-rate:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
   values:
-    0: 20
-
-x:
+    0: 20.0
+- name: x
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return rate[0] * income
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return rate[0] * income
 """
             )
             .to_js_generator()
@@ -563,12 +683,16 @@ x:
         code = (
             parse_rulespec(
                 """
-x:
+format: rulespec/v1
+rules:
+- name: x
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return max(0, round(min(a, b)))
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return max(0, round(min(a, b)))
 """
             )
             .to_js_generator()
@@ -585,28 +709,31 @@ class TestFullFiles:
         """A full RuleSpec file with source, parameters, and variables parses."""
         result = parse_rulespec(
             """
-# 26 USC 32 - Earned Income Tax Credit
-
+format: rulespec/v1
 source:
   lawarchive: us/statute/26/32/2025-01-01
-  citation: "26 USC 32"
-  accessed: 2025-12-12
-
-credit_pct:
+  citation: 26 USC 32
+  accessed: '2025-12-12'
+rules:
+- name: credit_pct
+  kind: parameter
   source: statutes/26/32/b/1/credit_pct
-
-earned_income_amount:
+- name: earned_income_amount
+  kind: parameter
   source: guidance/irs/rp-24-40/eitc/earned_income_amount
-
-eitc:
+- name: eitc
+  kind: derived
   entity: TaxUnit
   period: Year
   dtype: Money
-  label: "Earned Income Tax Credit"
-  from 2025-01-01:
-    earned_cap = earned_income_amount[n_children]
-    credit_base = credit_pct[n_children] * min(earned_income, earned_cap)
-    return max(0, credit_base - phaseout)
+  label: Earned Income Tax Credit
+  source: 26 USC 32
+  versions:
+  - effective_from: '2025-01-01'
+    formula: |-
+      earned_cap = earned_income_amount[n_children]
+      credit_base = credit_pct[n_children] * min(earned_income, earned_cap)
+      return max(0, credit_base - phaseout)
 """
         )
 
@@ -621,20 +748,24 @@ eitc:
         code = (
             parse_rulespec(
                 """
+format: rulespec/v1
 source:
-  citation: "Test"
-  accessed: 2025-01-01
-
-rate:
+  citation: Test
+  accessed: '2025-01-01'
+rules:
+- name: rate
+  kind: parameter
   source: test/path
-
-tax:
-  label: "Tax"
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2025-01-01:
-    return income * 0.2
+  label: Tax
+  source: Test
+  versions:
+  - effective_from: '2025-01-01'
+    formula: return income * 0.2
 """
             )
             .to_js_generator()
@@ -727,18 +858,22 @@ class TestExampleFiles:
 
 
 class TestStatuteText:
-    """Tests for top-level statute text parsing."""
+    """Tests for module summary parsing."""
 
     def test_parse_statute_text(self):
-        """Triple-quoted statute text is preserved."""
+        """Module summary text is preserved."""
         result = parse_rulespec(
-            '''
+            """
+format: rulespec/v1
+module:
+  summary: |-
+    In the case of an individual, there shall be imposed
+    a tax equal to 3.8 percent of the lesser of net investment
+    income or excess MAGI over the threshold amount.
+rules:
+- name: placeholder
+  kind: input
 """
-In the case of an individual, there shall be imposed
-a tax equal to 3.8 percent of the lesser of net investment
-income or excess MAGI over the threshold amount.
-"""
-'''
         )
 
         assert result.statute_text is not None
@@ -749,20 +884,25 @@ income or excess MAGI over the threshold amount.
         """Statute text is optional."""
         result = parse_rulespec(
             """
-rate:
-  from 2024-01-01: 0.30
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.3'
 """
         )
 
         assert result.statute_text is None
 
 
-class TestLegacySyntaxRejection:
-    """Tests for removed legacy brace syntax."""
+class TestUnsupportedSyntaxRejection:
+    """Tests for rejecting non-v1 source formats."""
 
-    def test_rejects_legacy_parameter_blocks(self):
-        """Legacy brace syntax is rejected with a user-facing parser error."""
-        with pytest.raises(ParserError, match="Legacy brace syntax"):
+    def test_rejects_non_v1_parameter_blocks(self):
+        """Old brace syntax is rejected as invalid RuleSpec v1."""
+        with pytest.raises(ParserError, match="RuleSpec v1"):
             parse_rulespec(
                 """
 parameter rate {
@@ -774,9 +914,9 @@ parameter rate {
 """
             )
 
-    def test_rejects_legacy_variable_blocks(self):
-        """Legacy variable braces are rejected instead of half-parsed."""
-        with pytest.raises(ParserError, match="Legacy brace syntax"):
+    def test_rejects_non_v1_variable_blocks(self):
+        """Old variable braces are rejected as invalid RuleSpec v1."""
+        with pytest.raises(ParserError, match="RuleSpec v1"):
             parse_rulespec(
                 """
 variable tax {

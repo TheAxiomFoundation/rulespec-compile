@@ -1,109 +1,104 @@
-# 7 USC 2017 - Supplemental Nutrition Assistance Program (SNAP)
-# Fiscal Year 2025 implementation
-
+format: rulespec/v1
 source:
   lawarchive: us/statute/7/2017/2025-01-01
-  citation: "7 USC 2017"
-  accessed: 2025-12-12
-
-# Maximum allotment by household size (FY2025)
-# 7 CFR 273.10(e)(2)(ii)
-max_allotment:
-  source: "USDA FNS FY2025 SNAP Allotments"
+  citation: 7 USC 2017
+  accessed: '2025-12-12'
+rules:
+- name: max_allotment
+  kind: parameter
+  source: USDA FNS FY2025 SNAP Allotments
   values:
-    1: 292
-    2: 536
-    3: 768
-    4: 975
-    5: 1158
-    6: 1390
-    7: 1536
-    8: 1756
-
-# Standard deduction by household size
-# 7 CFR 273.9(d)(1)
-standard_deduction:
-  source: "7 CFR 273.9(d)(1)"
+    1: 292.0
+    2: 536.0
+    3: 768.0
+    4: 975.0
+    5: 1158.0
+    6: 1390.0
+    7: 1536.0
+    8: 1756.0
+- name: standard_deduction
+  kind: parameter
+  source: 7 CFR 273.9(d)(1)
   values:
-    1: 198
-    2: 198
-    3: 198
-    4: 208
-    5: 244
-    6: 279
-    7: 279
-    8: 279
-
-# Benefit reduction rate
-# 7 USC 2017(a) - 30% of net income
-benefit_reduction_rate:
-  source: "7 USC 2017(a)"
+    1: 198.0
+    2: 198.0
+    3: 198.0
+    4: 208.0
+    5: 244.0
+    6: 279.0
+    7: 279.0
+    8: 279.0
+- name: benefit_reduction_rate
+  kind: parameter
+  source: 7 USC 2017(a)
   values:
-    0: 30
-
-# Gross income limit (130% of federal poverty level, monthly)
-# 7 CFR 273.9(a)(1)
-gross_income_limit:
-  source: "7 CFR 273.9(a)(1) - 130% FPL"
+    0: 30.0
+- name: gross_income_limit
+  kind: parameter
+  source: 7 CFR 273.9(a)(1) - 130% FPL
   values:
-    1: 1580
-    2: 2137
-    3: 2694
-    4: 3250
-    5: 3807
-    6: 4364
-    7: 4921
-    8: 5478
-
-# Net income limit (100% of federal poverty level, monthly)
-# 7 CFR 273.9(a)(2)
-net_income_limit:
-  source: "7 CFR 273.9(a)(2) - 100% FPL"
+    1: 1580.0
+    2: 2137.0
+    3: 2694.0
+    4: 3250.0
+    5: 3807.0
+    6: 4364.0
+    7: 4921.0
+    8: 5478.0
+- name: net_income_limit
+  kind: parameter
+  source: 7 CFR 273.9(a)(2) - 100% FPL
   values:
-    1: 1215
-    2: 1644
-    3: 2072
-    4: 2500
-    5: 2929
-    6: 3357
-    7: 3786
-    8: 4214
-
-snap_eligible:
+    1: 1215.0
+    2: 1644.0
+    3: 2072.0
+    4: 2500.0
+    5: 2929.0
+    6: 3357.0
+    7: 3786.0
+    8: 4214.0
+- name: snap_eligible
+  kind: derived
   entity: Household
   period: Month
   dtype: Boolean
-  label: "SNAP Eligibility"
-  from 2025-01-01:
-    # Simplified eligibility: gross income below limit
-    hh = min(household_size, 8)
-    gross_limit = gross_income_limit[hh]
-    return gross_income <= gross_limit
-
-snap_benefit:
+  label: SNAP Eligibility
+  source: 7 USC 2017
+  versions:
+  - effective_from: '2025-01-01'
+    formula: |-
+      # Simplified eligibility: gross income below limit
+      hh = min(household_size, 8)
+      gross_limit = gross_income_limit[hh]
+      return gross_income <= gross_limit
+- name: snap_benefit
+  kind: derived
   entity: Household
   period: Month
   dtype: Money
-  label: "SNAP Monthly Benefit"
-  from 2025-01-01:
-    hh = min(household_size, 8)
+  label: SNAP Monthly Benefit
+  source: 7 USC 2017
+  versions:
+  - effective_from: '2025-01-01'
+    formula: |-
+      hh = min(household_size, 8)
 
-    # Get max allotment for household size
-    max_benefit = max_allotment[hh]
+      # Get max allotment for household size
+      max_benefit = max_allotment[hh]
 
-    # Calculate net income (gross - standard deduction)
-    std_deduction = standard_deduction[hh]
-    net_income = max(0, gross_income - std_deduction)
+      # Calculate net income (gross - standard deduction)
+      std_deduction = standard_deduction[hh]
+      net_income = max(0, gross_income - std_deduction)
 
-    # Check net income eligibility
-    net_limit = net_income_limit[hh]
-    is_eligible = net_income <= net_limit
+      # Check net income eligibility
+      net_limit = net_income_limit[hh]
+      is_eligible = net_income <= net_limit
 
-    # Benefit = max allotment - 30% of net income
-    reduction = net_income * benefit_reduction_rate[0] / 100
-    benefit = max(0, max_benefit - reduction)
+      # Benefit = max allotment - 30% of net income
+      reduction = net_income * benefit_reduction_rate[0] / 100
+      benefit = max(0, max_benefit - reduction)
 
-    # Minimum benefit for 1-2 person households
-    min_benefit = hh <= 2 ? 23 : 0
+      # Minimum benefit for 1-2 person households
+      min_benefit = hh <= 2 ? 23 : 0
 
-    return is_eligible ? round(max(benefit, min_benefit)) : 0
+      return is_eligible ? round(max(benefit, min_benefit)) : 0

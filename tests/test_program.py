@@ -26,7 +26,7 @@ class TestRuleSpecProgram:
         code = (
             load_rulespec_program(entry)
             .to_python_generator(
-                parameter_overrides={"phase_in_rate.rate": 0.25},
+                rule_bindings={"phase_in_rate.rate": 0.25},
                 outputs=["benefit_amount"],
             )
             .generate()
@@ -56,7 +56,7 @@ class TestRuleSpecProgram:
         )
 
         lowered = load_rulespec_program(entry).to_lowered_program(
-            parameter_overrides={"phase_in_rate.rate": 0.25},
+            rule_bindings={"phase_in_rate.rate": 0.25},
             outputs=["benefit_amount"],
         )
 
@@ -71,22 +71,30 @@ class TestRuleSpecProgram:
         entry = tmp_path / "snap_child_support_deduction.yaml"
         entry.write_text(
             """
-snap_child_support_payments_made:
+format: rulespec/v1
+rules:
+- name: snap_child_support_payments_made
+  kind: input
   entity: SnapUnit
   period: Month
   dtype: Money
-
-snap_state_uses_child_support_deduction:
+- name: snap_state_uses_child_support_deduction
+  kind: input
   entity: SnapUnit
   period: Month
   dtype: Boolean
-
-snap_child_support_deduction:
+- name: snap_child_support_deduction
+  kind: derived
   entity: SnapUnit
   period: Month
   dtype: Money
-  from 2022-01-01:
-    if snap_state_uses_child_support_deduction: snap_child_support_payments_made else: 0
+  versions:
+  - effective_from: '2022-01-01'
+    formula: |-
+      if snap_state_uses_child_support_deduction:
+        snap_child_support_payments_made
+      else:
+        0
 """
         )
 
@@ -109,22 +117,30 @@ snap_child_support_deduction:
         entry = tmp_path / "snap_child_support_deduction.yaml"
         entry.write_text(
             """
-snap_child_support_payments_made:
+format: rulespec/v1
+rules:
+- name: snap_child_support_payments_made
+  kind: input
   entity: SnapUnit
   period: Month
   dtype: Money
-
-snap_state_uses_child_support_deduction:
+- name: snap_state_uses_child_support_deduction
+  kind: input
   entity: SnapUnit
   period: Month
   dtype: Boolean
-
-snap_child_support_deduction:
+- name: snap_child_support_deduction
+  kind: derived
   entity: SnapUnit
   period: Month
   dtype: Money
-  from 2022-01-01:
-    if snap_state_uses_child_support_deduction: snap_child_support_payments_made else: 0
+  versions:
+  - effective_from: '2022-01-01'
+    formula: |-
+      if snap_state_uses_child_support_deduction:
+        snap_child_support_payments_made
+      else:
+        0
 """
         )
 
@@ -155,20 +171,25 @@ snap_child_support_deduction:
         entry = tmp_path / "need_standard.yaml"
         entry.write_text(
             """
-number_of_children_in_assistance_unit:
+format: rulespec/v1
+rules:
+- name: number_of_children_in_assistance_unit
+  kind: input
   entity: TanfUnit
   period: Month
   dtype: Integer
-
-need_standard:
+- name: need_standard
+  kind: derived
   entity: TanfUnit
   period: Month
   dtype: Money
-  from 2026-04-02:
-    if number_of_children_in_assistance_unit == 0: 0 else:
-    if number_of_children_in_assistance_unit == 1: 117 else:
-    if number_of_children_in_assistance_unit == 2: 245 else:
-    999
+  versions:
+  - effective_from: '2026-04-02'
+    formula: |-
+      if number_of_children_in_assistance_unit == 0: 0 else:
+      if number_of_children_in_assistance_unit == 1: 117 else:
+      if number_of_children_in_assistance_unit == 2: 245 else:
+      999
 """
         )
 
@@ -203,23 +224,28 @@ need_standard:
         entry = tmp_path / "flag.yaml"
         entry.write_text(
             """
-a:
+format: rulespec/v1
+rules:
+- name: a
+  kind: input
   entity: Person
   period: Month
   dtype: Boolean
-
-b:
+- name: b
+  kind: input
   entity: Person
   period: Month
   dtype: Boolean
-
-flag:
+- name: flag
+  kind: derived
   entity: Person
   period: Month
   dtype: Boolean
-  from 2026-01-01:
-    a and
-    b
+  versions:
+  - effective_from: '2026-01-01'
+    formula: |-
+      a and
+      b
 """
         )
 
@@ -238,32 +264,45 @@ flag:
         entry = tmp_path / "phaseout_percentage.yaml"
         entry.write_text(
             """
-qualifying_child_count:
+format: rulespec/v1
+rules:
+- name: qualifying_child_count
+  kind: input
   entity: TaxUnit
   period: Year
   dtype: Integer
-
-phaseout_pct_no_children:
-  from 2009-01-01: 0.0765
-
-phaseout_pct_1_child:
-  from 2009-01-01: 0.1598
-
-phaseout_pct_2_children:
-  from 2009-01-01: 0.2106
-
-phaseout_pct_3_plus_children:
-  from 2009-01-01: 0.2106
-
-phaseout_percentage:
+- name: phaseout_pct_no_children
+  kind: parameter
+  versions:
+  - effective_from: '2009-01-01'
+    formula: '0.0765'
+- name: phaseout_pct_1_child
+  kind: parameter
+  versions:
+  - effective_from: '2009-01-01'
+    formula: '0.1598'
+- name: phaseout_pct_2_children
+  kind: parameter
+  versions:
+  - effective_from: '2009-01-01'
+    formula: '0.2106'
+- name: phaseout_pct_3_plus_children
+  kind: parameter
+  versions:
+  - effective_from: '2009-01-01'
+    formula: '0.2106'
+- name: phaseout_percentage
+  kind: derived
   entity: TaxUnit
   period: Year
   dtype: Rate
-  from 2009-01-01:
-    if qualifying_child_count >= 3: phaseout_pct_3_plus_children
-    elif qualifying_child_count == 2: phaseout_pct_2_children
-    elif qualifying_child_count == 1: phaseout_pct_1_child
-    else: phaseout_pct_no_children
+  versions:
+  - effective_from: '2009-01-01'
+    formula: |-
+      if qualifying_child_count >= 3: phaseout_pct_3_plus_children
+      elif qualifying_child_count == 2: phaseout_pct_2_children
+      elif qualifying_child_count == 1: phaseout_pct_1_child
+      else: phaseout_pct_no_children
 """
         )
 
@@ -290,29 +329,39 @@ phaseout_percentage:
         shared = tmp_path / "shared.yaml"
         shared.write_text(
             """
-rate:
-  source: "shared-rate"
-  from 2024-01-01: 0.1
-
-taxable_income:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: shared-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+- name: taxable_income
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages - deduction
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages - deduction
 """
         )
         entry = tmp_path / "main.yaml"
         entry.write_text(
             """
-import "./shared.yaml"
-
-tax:
+format: rulespec/v1
+imports:
+- ./shared.yaml
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return taxable_income * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return taxable_income * rate
 """
         )
 
@@ -331,7 +380,10 @@ tax:
         statute_root.mkdir(parents=True)
         (statute_root / "62.yaml").write_text(
             """
-adjusted_gross_income:
+format: rulespec/v1
+rules:
+- name: adjusted_gross_income
+  kind: input
   entity: TaxUnit
   period: Year
   dtype: Money
@@ -342,14 +394,20 @@ adjusted_gross_income:
         entry = target_root / "A.yaml"
         entry.write_text(
             """
-first_reduction:
-  imports:
-    - 26/62#adjusted_gross_income
+format: rulespec/v1
+rules:
+- name: first_reduction
+  kind: derived
   entity: TaxUnit
   period: Year
   dtype: Rate
-  from 2002-01-01:
-    adjusted_gross_income >= 15000
+  imports:
+  - path: 26/62
+    symbols:
+    - adjusted_gross_income
+  versions:
+  - effective_from: '2002-01-01'
+    formula: adjusted_gross_income >= 15000
 """
         )
 
@@ -370,23 +428,28 @@ first_reduction:
         dependency_root.mkdir(parents=True)
         (dependency_root / "12.yaml").write_text(
             """
-contract_is_entered_into_by_participant_and_county_department:
+format: rulespec/v1
+rules:
+- name: contract_is_entered_into_by_participant_and_county_department
+  kind: input
   entity: Person
   period: Month
   dtype: Boolean
-
-contract_is_pursuant_to_section_26_2_708:
+- name: contract_is_pursuant_to_section_26_2_708
+  kind: input
   entity: Person
   period: Month
   dtype: Boolean
-
-is_individual_responsibility_contract:
+- name: is_individual_responsibility_contract
+  kind: derived
   entity: Person
   period: Month
   dtype: Boolean
-  from 2026-04-03:
-    contract_is_entered_into_by_participant_and_county_department and
-    contract_is_pursuant_to_section_26_2_708
+  versions:
+  - effective_from: '2026-04-03'
+    formula: |-
+      contract_is_entered_into_by_participant_and_county_department and
+      contract_is_pursuant_to_section_26_2_708
 """
         )
         entry_root = tmp_path / "statutes" / "crs" / "26-2-711" / "1" / "a"
@@ -394,34 +457,38 @@ is_individual_responsibility_contract:
         entry = entry_root / "I.yaml"
         entry.write_text(
             """
+format: rulespec/v1
 imports:
-  - statutes/crs/26-2-703/12#is_individual_responsibility_contract
-
-participant_fails_to_comply_with_terms_and_conditions_of_contract:
+- path: statutes/crs/26-2-703/12
+  symbols:
+  - is_individual_responsibility_contract
+rules:
+- name: participant_fails_to_comply_with_terms_and_conditions_of_contract
+  kind: input
   entity: Person
   period: Month
   dtype: Boolean
-
-good_cause_exists_as_determined_by_county:
+- name: good_cause_exists_as_determined_by_county
+  kind: input
   entity: Person
   period: Month
   dtype: Boolean
-
-participant_is_subject_to_sanction_for_noncompliance_with_individual_responsibility_contract:
+- name: participant_is_sanctioned
+  kind: derived
   entity: Person
   period: Month
   dtype: Boolean
-  from 2026-04-03:
-    participant_fails_to_comply_with_terms_and_conditions_of_contract and
-    is_individual_responsibility_contract and
-    not good_cause_exists_as_determined_by_county
+  versions:
+  - effective_from: '2026-04-03'
+    formula: |-
+      participant_fails_to_comply_with_terms_and_conditions_of_contract and
+      is_individual_responsibility_contract and
+      not good_cause_exists_as_determined_by_county
 """
         )
 
         lowered = load_rulespec_program(entry).to_lowered_program(
-            outputs=[
-                "participant_is_subject_to_sanction_for_noncompliance_with_individual_responsibility_contract"
-            ]
+            outputs=["participant_is_sanctioned"]
         )
 
         assert {
@@ -445,11 +512,7 @@ participant_is_subject_to_sanction_for_noncompliance_with_individual_responsibil
         namespace: dict[str, object] = {}
         code = (
             load_rulespec_program(entry)
-            .to_python_generator(
-                outputs=[
-                    "participant_is_subject_to_sanction_for_noncompliance_with_individual_responsibility_contract"
-                ]
-            )
+            .to_python_generator(outputs=["participant_is_sanctioned"])
             .generate()
         )
 
@@ -471,49 +534,56 @@ participant_is_subject_to_sanction_for_noncompliance_with_individual_responsibil
             }
         )
 
-        assert (
-            result[
-                "participant_is_subject_to_sanction_for_noncompliance_with_individual_responsibility_contract"
-            ]
-            is True
-        )
+        assert result["participant_is_sanctioned"] is True
 
     def test_selected_outputs_prune_unreachable_imported_variables(self, tmp_path):
         """Graph pruning excludes unreachable imported variables before validation."""
         shared = tmp_path / "shared.yaml"
         shared.write_text(
             """
-rate:
-  source: "shared-rate"
-  from 2024-01-01: 0.1
-
-taxable_income:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: shared-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+- name: taxable_income
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages - deduction
-
-bonus:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages - deduction
+- name: bonus
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    while wages > 0:
-      return wages
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      while wages > 0:
+        return wages
 """
         )
         entry = tmp_path / "main.yaml"
         entry.write_text(
             """
-import "./shared.yaml"
-
-tax:
+format: rulespec/v1
+imports:
+- ./shared.yaml
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return taxable_income * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return taxable_income * rate
 """
         )
 
@@ -529,7 +599,11 @@ tax:
     def test_load_rulespec_program_rejects_missing_import(self, tmp_path):
         """Missing imported files fail with a user-facing error."""
         entry = tmp_path / "main.yaml"
-        entry.write_text('import "./missing.yaml"\n')
+        entry.write_text("""
+format: rulespec/v1
+imports:
+- ./missing.yaml
+""")
 
         with pytest.raises(CompilationError, match="was not found"):
             load_rulespec_program(entry)
@@ -537,7 +611,15 @@ tax:
     def test_load_rulespec_program_rejects_non_rulespec_entry_file(self, tmp_path):
         """Entrypoints must use the .yaml extension."""
         entry = tmp_path / "main.txt"
-        entry.write_text("tax:\n  entity: Person\n  period: Year\n  dtype: Money\n")
+        entry.write_text("""
+format: rulespec/v1
+rules:
+- name: tax
+  kind: input
+  entity: Person
+  period: Year
+  dtype: Money
+""")
 
         with pytest.raises(CompilationError, match="must use the \\.yaml extension"):
             load_rulespec_program(entry)
@@ -546,21 +628,38 @@ tax:
         """Imported files must also use the .yaml extension."""
         (tmp_path / "shared.txt").write_text(
             """
-rate:
-  source: "shared-rate"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: shared-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """
         )
         entry = tmp_path / "main.yaml"
-        entry.write_text('import "./shared.txt"\n')
+        entry.write_text("""
+format: rulespec/v1
+imports:
+- ./shared.txt
+""")
 
         with pytest.raises(CompilationError, match="must use the \\.yaml extension"):
             load_rulespec_program(entry)
 
     def test_load_rulespec_program_rejects_import_cycles(self, tmp_path):
         """Import cycles fail loudly instead of recursing forever."""
-        (tmp_path / "a.yaml").write_text('import "./b.yaml"\n')
-        (tmp_path / "b.yaml").write_text('import "./a.yaml"\n')
+        (tmp_path / "a.yaml").write_text("""
+format: rulespec/v1
+imports:
+- ./b.yaml
+""")
+        (tmp_path / "b.yaml").write_text("""
+format: rulespec/v1
+imports:
+- ./a.yaml
+""")
 
         with pytest.raises(CompilationError, match="Import cycle detected"):
             load_rulespec_program(tmp_path / "a.yaml")
@@ -569,35 +668,47 @@ rate:
         """Plain imports still reject ambiguous duplicate symbol exposure."""
         (tmp_path / "left.yaml").write_text(
             """
-shared:
+format: rulespec/v1
+rules:
+- name: shared
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return 1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return 1
 """
         )
         (tmp_path / "right.yaml").write_text(
             """
-shared:
+format: rulespec/v1
+rules:
+- name: shared
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return 2
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return 2
 """
         )
         (tmp_path / "main.yaml").write_text(
             """
-import "./left.yaml"
-import "./right.yaml"
-
-tax:
+format: rulespec/v1
+imports:
+- ./left.yaml
+- ./right.yaml
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return shared
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return shared
 """
         )
 
@@ -608,29 +719,45 @@ tax:
         """Aliased imports can expose duplicate names without global collisions."""
         (tmp_path / "left.yaml").write_text(
             """
-rate:
-  source: "left-rate"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: left-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """
         )
         (tmp_path / "right.yaml").write_text(
             """
-rate:
-  source: "right-rate"
-  from 2024-01-01: 0.2
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: right-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
 """
         )
         (tmp_path / "main.yaml").write_text(
             """
-import "./left.yaml" as left
-import "./right.yaml" as right
-
-tax:
+format: rulespec/v1
+imports:
+- path: ./left.yaml
+  alias: left
+- path: ./right.yaml
+  alias: right
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * left.rate + wages * right.rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * left.rate + wages * right.rate
 """
         )
 
@@ -655,30 +782,44 @@ tax:
         right.mkdir()
         (left / "shared.yaml").write_text(
             """
-rate:
-  source: "left-rate"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: left-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """
         )
         (right / "shared.yaml").write_text(
             """
-bonus:
-  source: "right-bonus"
-  from 2024-01-01: 2
+format: rulespec/v1
+rules:
+- name: bonus
+  kind: parameter
+  source: right-bonus
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '2'
 """
         )
         entry = tmp_path / "benefit_amount.yaml"
         entry.write_text(
             """
-import "./left/shared.yaml"
-import "./right/shared.yaml"
-
-tax:
+format: rulespec/v1
+imports:
+- ./left/shared.yaml
+- ./right/shared.yaml
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages
 """
         )
 
@@ -699,30 +840,44 @@ tax:
         statute_dir.mkdir(parents=True)
         (statute_dir / "bar-baz.yaml").write_text(
             """
-rate_a:
-  source: "rate-a"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+rules:
+- name: rate_a
+  kind: parameter
+  source: rate-a
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """
         )
         (statute_dir / "bar_baz.yaml").write_text(
             """
-rate_b:
-  source: "rate-b"
-  from 2024-01-01: 0.2
+format: rulespec/v1
+rules:
+- name: rate_b
+  kind: parameter
+  source: rate-b
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
 """
         )
         entry = tmp_path / "statutes" / "us" / "entry.yaml"
         entry.write_text(
             """
-import "./bar-baz.yaml"
-import "./bar_baz.yaml"
-
-tax:
+format: rulespec/v1
+imports:
+- ./bar-baz.yaml
+- ./bar_baz.yaml
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages
 """
         )
 
@@ -747,32 +902,42 @@ tax:
         """Lowered program metadata keeps leaf-derived rule identity per node."""
         (tmp_path / "shared.yaml").write_text(
             """
+format: rulespec/v1
 source:
-  citation: "26 USC shared"
-
-rate:
-  source: "shared-rate"
-  from 2024-01-01: 0.1
-
-taxable_income:
+  citation: 26 USC shared
+rules:
+- name: rate
+  kind: parameter
+  source: shared-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+- name: taxable_income
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages - deduction
+  source: 26 USC shared
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages - deduction
 """
         )
         entry = tmp_path / "benefit_amount.yaml"
         entry.write_text(
             """
-import "./shared.yaml"
-
-tax:
+format: rulespec/v1
+imports:
+- ./shared.yaml
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return taxable_income * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return taxable_income * rate
 """
         )
 
@@ -806,34 +971,51 @@ tax:
         """Selective imports can only bind symbols that a module exports."""
         (tmp_path / "shared.yaml").write_text(
             """
-export rate_public, taxable_income
-
-rate_public:
-  source: "shared-rate"
-  from 2024-01-01: 0.1
-
-hidden_rate:
-  source: "hidden-rate"
-  from 2024-01-01: 0.2
-
-taxable_income:
+format: rulespec/v1
+exports:
+- rate_public
+- taxable_income
+rules:
+- name: rate_public
+  kind: parameter
+  source: shared-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+- name: hidden_rate
+  kind: parameter
+  source: hidden-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
+- name: taxable_income
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages - deduction
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages - deduction
 """
         )
         (tmp_path / "main.yaml").write_text(
             """
-from "./shared.yaml" import rate_public as rate, taxable_income
-
-tax:
+format: rulespec/v1
+imports:
+- path: ./shared.yaml
+  symbols:
+  - name: rate_public
+    alias: rate
+  - taxable_income
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return taxable_income * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return taxable_income * rate
 """
         )
 
@@ -848,34 +1030,39 @@ tax:
 
         assert namespace["calculate"](wages=1000, deduction=100)["tax"] == 90
 
-    def test_load_rulespec_program_resolves_qualified_parameter_bindings(
-        self, tmp_path
-    ):
+    def test_load_rulespec_program_resolves_qualified_rule_bindings(self, tmp_path):
         """Imported source-only parameters bind through module_identity.symbol."""
         (tmp_path / "shared.yaml").write_text(
             """
-rate:
-  source: "external/rate"
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
 """
         )
         entry = tmp_path / "benefit_amount.yaml"
         entry.write_text(
             """
-import "./shared.yaml"
-
-tax:
+format: rulespec/v1
+imports:
+- ./shared.yaml
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
 
         namespace = {}
         code = (
             load_rulespec_program(entry)
-            .to_python_generator(parameter_overrides={"shared.rate": 0.25})
+            .to_python_generator(rule_bindings={"shared.rate": 0.25})
             .generate()
         )
 
@@ -883,34 +1070,44 @@ tax:
 
         assert namespace["calculate"](wages=100)["tax"] == 25
 
-    def test_load_rulespec_program_rejects_ambiguous_bare_parameter_bindings(
-        self, tmp_path
-    ):
+    def test_load_rulespec_program_rejects_ambiguous_bare_rule_bindings(self, tmp_path):
         """Bare source-only names fail when more than one module defines them."""
         (tmp_path / "left.yaml").write_text(
             """
-rate:
-  source: "left-rate"
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: left-rate
 """
         )
         (tmp_path / "right.yaml").write_text(
             """
-rate:
-  source: "right-rate"
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: right-rate
 """
         )
         entry = tmp_path / "benefit_amount.yaml"
         entry.write_text(
             """
-import "./left.yaml" as left
-import "./right.yaml" as right
-
-tax:
+format: rulespec/v1
+imports:
+- path: ./left.yaml
+  alias: left
+- path: ./right.yaml
+  alias: right
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages
 """
         )
 
@@ -918,9 +1115,7 @@ tax:
             RuleBindingError,
             match="Rule binding target 'rate' is ambiguous",
         ):
-            load_rulespec_program(entry).to_compile_model(
-                parameter_overrides={"rate": 0.25}
-            )
+            load_rulespec_program(entry).to_compile_model(rule_bindings={"rate": 0.25})
 
     def test_load_rulespec_program_rejects_selective_import_of_hidden_symbol(
         self, tmp_path
@@ -928,27 +1123,40 @@ tax:
         """Selective imports fail loudly when the target file does not export a name."""
         (tmp_path / "shared.yaml").write_text(
             """
-export rate_public
-
-rate_public:
-  source: "shared-rate"
-  from 2024-01-01: 0.1
-
-hidden_rate:
-  source: "hidden-rate"
-  from 2024-01-01: 0.2
+format: rulespec/v1
+exports:
+- rate_public
+rules:
+- name: rate_public
+  kind: parameter
+  source: shared-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+- name: hidden_rate
+  kind: parameter
+  source: hidden-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
 """
         )
         (tmp_path / "main.yaml").write_text(
             """
-from "./shared.yaml" import hidden_rate
-
-tax:
+format: rulespec/v1
+imports:
+- path: ./shared.yaml
+  symbols:
+  - hidden_rate
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * hidden_rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * hidden_rate
 """
         )
 
@@ -961,25 +1169,39 @@ tax:
         """Export aliases define both import names and public result keys."""
         (tmp_path / "shared.yaml").write_text(
             """
-export private_rate as rate
-
-private_rate:
-  source: "shared-rate"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+exports:
+- name: private_rate
+  alias: rate
+rules:
+- name: private_rate
+  kind: parameter
+  source: shared-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """
         )
         entry = tmp_path / "main.yaml"
         entry.write_text(
             """
-from "./shared.yaml" import rate
-export tax as benefit_amount
-
-tax:
+format: rulespec/v1
+imports:
+- path: ./shared.yaml
+  symbols:
+  - rate
+exports:
+- name: tax
+  alias: benefit_amount
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
 
@@ -999,21 +1221,27 @@ tax:
         entry = tmp_path / "main.yaml"
         entry.write_text(
             """
-export tax as benefit_amount
-
-tax:
+format: rulespec/v1
+exports:
+- name: tax
+  alias: benefit_amount
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
-
-bonus:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
+- name: bonus
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.5
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.5
 """
         )
 
@@ -1039,29 +1267,45 @@ bonus:
         """Intermediate modules can re-export imported symbols without wrappers."""
         (tmp_path / "base.yaml").write_text(
             """
-export private_rate as rate
-
-private_rate:
-  source: "base-rate"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+exports:
+- name: private_rate
+  alias: rate
+rules:
+- name: private_rate
+  kind: parameter
+  source: base-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """
         )
         (tmp_path / "surface.yaml").write_text(
             """
-export from "./base.yaml" import rate
+format: rulespec/v1
+re_exports:
+- path: ./base.yaml
+  symbols:
+  - rate
 """
         )
         entry = tmp_path / "main.yaml"
         entry.write_text(
             """
-from "./surface.yaml" import rate
-
-tax:
+format: rulespec/v1
+imports:
+- path: ./surface.yaml
+  symbols:
+  - rate
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
 
@@ -1078,20 +1322,30 @@ tax:
         """Entry modules can publish imported outputs through re-exports."""
         (tmp_path / "upstream.yaml").write_text(
             """
-export tax as upstream_benefit
-
-tax:
+format: rulespec/v1
+exports:
+- name: tax
+  alias: upstream_benefit
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
 """
         )
         entry = tmp_path / "main.yaml"
         entry.write_text(
             """
-export from "./upstream.yaml" import upstream_benefit as benefit_amount
+format: rulespec/v1
+re_exports:
+- path: ./upstream.yaml
+  symbols:
+  - name: upstream_benefit
+    alias: benefit_amount
 """
         )
 
@@ -1111,20 +1365,30 @@ export from "./upstream.yaml" import upstream_benefit as benefit_amount
         """Public outputs exposed through re-exports preserve their source rule."""
         (tmp_path / "upstream.yaml").write_text(
             """
-export tax as upstream_benefit
-
-tax:
+format: rulespec/v1
+exports:
+- name: tax
+  alias: upstream_benefit
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
 """
         )
         entry = tmp_path / "benefit_amount.yaml"
         entry.write_text(
             """
-export from "./upstream.yaml" import upstream_benefit as benefit_amount
+format: rulespec/v1
+re_exports:
+- path: ./upstream.yaml
+  symbols:
+  - name: upstream_benefit
+    alias: benefit_amount
 """
         )
 
@@ -1155,24 +1419,36 @@ roots = ["./lib"]
         shared.parent.mkdir(parents=True, exist_ok=True)
         shared.write_text(
             """
-export private_rate as rate
-
-private_rate:
-  source: "base-rate"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+exports:
+- name: private_rate
+  alias: rate
+rules:
+- name: private_rate
+  kind: parameter
+  source: base-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """
         )
         entry = tmp_path / "main.yaml"
         entry.write_text(
             """
-from "tax/shared.yaml" import rate
-
-tax:
+format: rulespec/v1
+imports:
+- path: tax/shared.yaml
+  symbols:
+  - rate
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
 
@@ -1195,24 +1471,36 @@ tax = "./packages/tax"
         shared.parent.mkdir(parents=True, exist_ok=True)
         shared.write_text(
             """
-export private_rate as rate
-
-private_rate:
-  source: "base-rate"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+exports:
+- name: private_rate
+  alias: rate
+rules:
+- name: private_rate
+  kind: parameter
+  source: base-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """
         )
         entry = tmp_path / "main.yaml"
         entry.write_text(
             """
-from "tax/shared.yaml" import rate
-
-tax:
+format: rulespec/v1
+imports:
+- path: tax/shared.yaml
+  symbols:
+  - rate
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
 

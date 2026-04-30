@@ -18,9 +18,9 @@ Logical phases (in roughly the order the code executes):
 1. **Parse / IR types** -- classes describing the compile-time (``Compiled*``)
    and serializable lowered (``Lowered*``) shapes: ``CompilationError``,
    ``CompileContext``, ``CompiledInput``, ``CompiledParameter``,
-   ``FormulaAssignment``, ``CompiledOutput``, ``LoweredInput``,
-   ``LoweredParameter``, ``LoweredComputation``, ``LoweredOutput``,
-   ``LoweredProgram`` (top of file through ``LoweredProgram``).
+   ``CompiledOutput``, ``LoweredInput``, ``LoweredParameter``,
+   ``LoweredComputation``, ``LoweredOutput``, ``LoweredProgram`` (top of file
+   through ``LoweredProgram``).
 2. **Compile model** -- ``CompiledVariable`` and ``CompiledModule``, the main
    per-module compile entry point that orchestrates phases 3--6 against a
    single ``RuleSpecFile`` (``CompiledVariable`` through the end of
@@ -28,10 +28,9 @@ Logical phases (in roughly the order the code executes):
 3. **Render helpers** -- target-specific formula rendering wrappers
    (``_render_js_formula``, ``_render_python_formula``).
 4. **Resolve temporal + lower inputs** -- lowering ``CompiledInput`` to
-   ``LoweredInput`` and inferring value kinds from names/defaults
-   (``_lower_input``, ``_input_value_kind``, the legacy kind inference
-   helpers, ``_normalize_value_kind``, and the parameter value/lookup-kind
-   helpers).
+   ``LoweredInput`` and validating explicit value kinds (``_lower_input``,
+   ``_input_value_kind``, ``_normalize_value_kind``, and the parameter
+   value/lookup-kind helpers).
 5. **Resolve bindings + infer kinds** -- statement-level kind analysis
    (``_StatementKindAnalysis``, ``_build_variable_kind_hints``,
    ``_analyze_statement_kinds``, ``_infer_expression_value_kind``,
@@ -157,14 +156,6 @@ class CompiledParameter:
     index_value_kind: str | None = None
 
 
-@dataclass
-class FormulaAssignment:
-    """Backward-compatible assignment node for older public imports."""
-
-    name: str
-    expression: Expression
-
-
 @dataclass(frozen=True)
 class CompiledOutput:
     """One public output exposed by a compiled calculator."""
@@ -225,19 +216,16 @@ class LoweredInput:
         try:
             name = payload["name"]
             default = payload["default"]
+            raw_value_kind = payload["value_kind"]
         except KeyError as exc:
             raise CompilationError(
                 f"Lowered input is missing required field {exc.args[0]!r}."
             ) from exc
-        raw_value_kind = payload.get("value_kind")
-        if raw_value_kind is None:
-            value_kind = _infer_legacy_lowered_input_value_kind(name, default)
-        else:
-            value_kind = _normalize_value_kind(
-                raw_value_kind,
-                subject=f"Lowered input '{name}'",
-                allowed=_LOWERED_INPUT_VALUE_KINDS,
-            )
+        value_kind = _normalize_value_kind(
+            raw_value_kind,
+            subject=f"Lowered input '{name}'",
+            allowed=_LOWERED_INPUT_VALUE_KINDS,
+        )
         public_name = payload.get("public_name", name)
         module_identity = payload.get("module_identity", "")
         symbol_name = payload.get("symbol_name") or _infer_input_symbol_name(
@@ -286,6 +274,8 @@ class LoweredParameter:
         try:
             name = payload["name"]
             raw_values = payload["values"]
+            raw_value_kind = payload["value_kind"]
+            raw_lookup_kind = payload["lookup_kind"]
         except KeyError as exc:
             raise CompilationError(
                 f"Lowered parameter is missing required field {exc.args[0]!r}."
@@ -303,23 +293,15 @@ class LoweredParameter:
                     f"Lowered parameter '{name}' has invalid indexed value "
                     f"{index!r}: {value!r}."
                 ) from exc
-        raw_value_kind = payload.get("value_kind")
-        if raw_value_kind is None:
-            value_kind = _infer_parameter_value_kind_from_values(values)
-        else:
-            value_kind = _normalize_value_kind(
-                raw_value_kind,
-                subject=f"Lowered parameter '{name}'",
-                allowed=_LOWERED_PARAMETER_VALUE_KINDS,
-            )
-        raw_lookup_kind = payload.get("lookup_kind")
-        if raw_lookup_kind is None:
-            lookup_kind = _infer_parameter_lookup_kind_from_values(values)
-        else:
-            lookup_kind = _normalize_parameter_lookup_kind(
-                raw_lookup_kind,
-                name=name,
-            )
+        value_kind = _normalize_value_kind(
+            raw_value_kind,
+            subject=f"Lowered parameter '{name}'",
+            allowed=_LOWERED_PARAMETER_VALUE_KINDS,
+        )
+        lookup_kind = _normalize_parameter_lookup_kind(
+            raw_lookup_kind,
+            name=name,
+        )
         index_value_kind = _normalize_parameter_index_value_kind(
             payload.get("index_value_kind"),
             name=name,
@@ -1061,13 +1043,6 @@ def _input_value_kind(compiled_input: CompiledInput) -> str:
     )
 
 
-def _infer_legacy_lowered_input_value_kind(name: str, default: Any) -> str:
-    """Infer one input kind when loading older lowered JSON bundles."""
-    if isinstance(default, bool):
-        return "boolean"
-    return _input_value_kind(_infer_input(name))
-
-
 def _normalize_value_kind(
     value_kind: str,
     *,
@@ -1117,7 +1092,10 @@ def _normalize_parameter_index_value_kind(
     """Validate one lowered parameter index-kind annotation."""
     if lookup_kind == "indexed":
         if raw_index_value_kind is None:
-            return "integer"
+            raise CompilationError(
+                f"Lowered parameter '{name}' must define index_value_kind when "
+                "lookup_kind is 'indexed'."
+            )
         if not isinstance(raw_index_value_kind, str):
             raise CompilationError(
                 f"Lowered parameter '{name}' has invalid index_value_kind "

@@ -30,12 +30,16 @@ class TestCLIMainCompile:
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-x:
+format: rulespec/v1
+rules:
+- name: x
+  kind: derived
   entity: Person
   period: Year
   dtype: Integer
-  from 2024-01-01:
-    return 42
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return 42
 """
         )
         with patch("sys.argv", ["rulespec-compile", "compile", str(input_file)]):
@@ -51,12 +55,16 @@ x:
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-x:
+format: rulespec/v1
+rules:
+- name: x
+  kind: derived
   entity: Person
   period: Year
   dtype: Integer
-  from 2024-01-01:
-    return 42
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return 42
 """
         )
         output_file = tmp_path / "output.js"
@@ -74,16 +82,22 @@ x:
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-rate:
-  source: "Test"
-  from 2024-01-01: 0.2
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
         with patch(
@@ -100,16 +114,22 @@ tax:
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-rate:
-  source: "Test"
-  from 2024-01-01: 0.2
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
         with patch(
@@ -126,17 +146,24 @@ tax:
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-rate:
-  source: "Test"
-  from 2024-01-01: 0.2
-  from 2025-01-01: 0.25
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
+  - effective_from: '2025-01-01'
+    formula: '0.25'
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
         with patch(
@@ -160,15 +187,19 @@ tax:
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
         with patch(
@@ -178,7 +209,7 @@ tax:
                 "compile",
                 str(input_file),
                 "--python",
-                "--parameter",
+                "--binding",
                 "rate=0.25",
             ],
         ):
@@ -192,15 +223,19 @@ tax:
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
         with patch(
@@ -219,24 +254,35 @@ tax:
                 output = mock_print.call_args_list[0][0][0]
                 assert "0.35" in output
 
-    def test_compile_parameter_file_supplies_source_only_parameter(self, tmp_path):
-        """Compile can bind source-only parameters from a JSON file."""
+    def test_compile_binding_file_supplies_source_only_rule(self, tmp_path):
+        """Compile can bind source-only rules from a JSON bundle file."""
         input_file = tmp_path / "test.yaml"
-        parameter_file = tmp_path / "bindings.json"
+        binding_file = tmp_path / "bindings.json"
         input_file.write_text(
             """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
-        parameter_file.write_text(json.dumps({"rate": 0.4}))
+        binding_file.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "bindings": [{"symbol": "rate", "value": 0.4}],
+                }
+            )
+        )
         with patch(
             "sys.argv",
             [
@@ -244,8 +290,8 @@ tax:
                 "compile",
                 str(input_file),
                 "--python",
-                "--parameter-file",
-                str(parameter_file),
+                "--binding-file",
+                str(binding_file),
             ],
         ):
             with patch("builtins.print") as mock_print:
@@ -259,15 +305,19 @@ tax:
         binding_file = tmp_path / "bindings.json"
         input_file.write_text(
             """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
         binding_file.write_text(
@@ -309,48 +359,47 @@ tax:
         binding_file = tmp_path / "eitc-2024.yaml"
         input_file.write_text(
             """
-number_of_qualifying_children:
+format: rulespec/v1
+rules:
+- name: number_of_qualifying_children
+  kind: input
   entity: TaxUnit
   period: Year
   dtype: Integer
   default: 0
-
-earned_income_amount:
-  source: "external/rules-us"
-
-phaseout_amount:
-  source: "external/rules-us"
-
-eitc_pair_total:
+- name: earned_income_amount
+  kind: parameter
+  source: external/rules-us
+- name: phaseout_amount
+  kind: parameter
+  source: external/rules-us
+- name: eitc_pair_total
+  kind: derived
   entity: TaxUnit
   period: Year
   dtype: Money
-  from 2024-01-01:
-    earned = earned_income_amount[number_of_qualifying_children]
-    phaseout = phaseout_amount[number_of_qualifying_children]
-    return earned + phaseout
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      earned = earned_income_amount[number_of_qualifying_children]
+      phaseout = phaseout_amount[number_of_qualifying_children]
+      return earned + phaseout
 """
         )
         binding_file.write_text(
             """
 schema_version: 1
-metadata:
-  name: EITC 2024 values
 bindings:
-  - module_identity: statutes/26/32/b/2/A/base_amounts
-    symbol: earned_income_amount
-    effective_date: '2024-01-01'
-    source: Rev. Proc. 2023-34
-    values:
-      0: 8260
-      1: 12390
-  - module_identity: statutes/26/32/b/2/A/base_amounts
-    symbol: phaseout_amount
-    effective_date: '2024-01-01'
-    source: Rev. Proc. 2023-34
-    values:
-      0: 10330
-      1: 22720
+- symbol: earned_income_amount
+  source: Rev. Proc. 2023-34
+  values:
+    0: 10330.0
+    1: 12390.0
+- symbol: phaseout_amount
+  source: Rev. Proc. 2023-34
+  values:
+    0: 16480.0
+    1: 22720.0
 """
         )
         with patch(
@@ -379,18 +428,22 @@ bindings:
         allowance_bundle = tmp_path / "allowance.yaml"
         input_file.write_text(
             """
-rate:
-  source: "external/rate"
-
-allowance:
-  source: "external/allowance"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: allowance
+  kind: parameter
+  source: external/allowance
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate + allowance
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate + allowance
 """
         )
         scalar_bundle.write_text(
@@ -404,13 +457,10 @@ tax:
         allowance_bundle.write_text(
             """
 schema_version: 1
-metadata:
-  name: Allowance memo
 bindings:
-  - symbol: allowance
-    effective_date: '2024-01-01'
-    value: 5
-    source: Allowance memo
+- symbol: allowance
+  source: Allowance memo
+  value: 5.0
 """
         )
         with patch(
@@ -440,21 +490,28 @@ bindings:
         """CLI bindings can target imported source-only params by module identity."""
         (tmp_path / "shared.yaml").write_text(
             """
-rate:
-  source: "external/rate"
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
 """
         )
         input_file = tmp_path / "benefit_amount.yaml"
         input_file.write_text(
             """
-import "./shared.yaml"
-
-tax:
+format: rulespec/v1
+imports:
+- ./shared.yaml
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
         with patch(
@@ -464,7 +521,7 @@ tax:
                 "compile",
                 str(input_file),
                 "--python",
-                "--parameter",
+                "--binding",
                 "shared.rate=0.25",
             ],
         ):
@@ -473,34 +530,39 @@ tax:
                 output = mock_print.call_args_list[0][0][0]
                 assert "0.25" in output
 
-    def test_compile_structured_parameter_file_supplies_metadata(self, tmp_path):
-        """Compile accepts the structured parameter bundle schema."""
+    def test_compile_structured_binding_file_supplies_metadata(self, tmp_path):
+        """Compile accepts structured rule-binding metadata."""
         input_file = tmp_path / "test.yaml"
-        parameter_file = tmp_path / "bindings.json"
+        binding_file = tmp_path / "bindings.json"
         input_file.write_text(
             """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
-        parameter_file.write_text(
+        binding_file.write_text(
             json.dumps(
                 {
                     "schema_version": 1,
                     "metadata": {"name": "TY2025 bundle"},
-                    "parameters": {
-                        "rate": {
+                    "bindings": [
+                        {
+                            "symbol": "rate",
                             "value": 0.4,
                             "source": "bundle://ty2025",
                         }
-                    },
+                    ],
                 }
             )
         )
@@ -511,8 +573,8 @@ tax:
                 "compile",
                 str(input_file),
                 "--python",
-                "--parameter-file",
-                str(parameter_file),
+                "--binding-file",
+                str(binding_file),
             ],
         ):
             with patch("builtins.print") as mock_print:
@@ -520,24 +582,35 @@ tax:
                 output = mock_print.call_args_list[0][0][0]
                 assert "external/rate [bound from bundle://ty2025]" in output
 
-    def test_compile_parameter_cli_overrides_parameter_file(self, tmp_path):
-        """Inline parameter bindings override file-backed values."""
+    def test_compile_inline_binding_overrides_binding_file(self, tmp_path):
+        """Inline rule bindings override file-backed values."""
         input_file = tmp_path / "test.yaml"
-        parameter_file = tmp_path / "bindings.json"
+        binding_file = tmp_path / "bindings.json"
         input_file.write_text(
             """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
-        parameter_file.write_text(json.dumps({"rate": 0.2}))
+        binding_file.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "bindings": [{"symbol": "rate", "value": 0.2}],
+                }
+            )
+        )
         with patch(
             "sys.argv",
             [
@@ -545,9 +618,9 @@ tax:
                 "compile",
                 str(input_file),
                 "--python",
-                "--parameter-file",
-                str(parameter_file),
-                "--parameter",
+                "--binding-file",
+                str(binding_file),
+                "--binding",
                 "rate=0.33",
             ],
         ):
@@ -560,28 +633,38 @@ tax:
         """Ambiguous bare parameter bindings fail with a user-facing error."""
         (tmp_path / "left.yaml").write_text(
             """
-rate:
-  source: "left-rate"
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: left-rate
 """
         )
         (tmp_path / "right.yaml").write_text(
             """
-rate:
-  source: "right-rate"
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: right-rate
 """
         )
         input_file = tmp_path / "benefit_amount.yaml"
         input_file.write_text(
             """
-import "./left.yaml"
-import "./right.yaml"
-
-tax:
+format: rulespec/v1
+imports:
+- ./left.yaml
+- ./right.yaml
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages
 """
         )
         with patch(
@@ -591,7 +674,7 @@ tax:
                 "compile",
                 str(input_file),
                 "--python",
-                "--parameter",
+                "--binding",
                 "rate=0.25",
             ],
         ):
@@ -603,21 +686,28 @@ tax:
         """Qualified parameter bindings accept dotted leaf identities."""
         (tmp_path / "shared.v1.yaml").write_text(
             """
-rate:
-  source: "shared-rate"
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: shared-rate
 """
         )
         input_file = tmp_path / "benefit_amount.yaml"
         input_file.write_text(
             """
-import "./shared.v1.yaml"
-
-tax:
+format: rulespec/v1
+imports:
+- ./shared.v1.yaml
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
         with patch(
@@ -627,7 +717,7 @@ tax:
                 "compile",
                 str(input_file),
                 "--python",
-                "--parameter",
+                "--binding",
                 "shared.v1.rate=0.25",
             ],
         ):
@@ -642,15 +732,19 @@ tax:
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
         with patch("sys.argv", ["rulespec-compile", "compile", str(input_file)]):
@@ -663,16 +757,21 @@ tax:
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    if is_joint:
-      rate = 0.1
-    else:
-      rate = 0.2
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      if is_joint:
+        rate = 0.1
+      else:
+        rate = 0.2
+      return wages * rate
 """
         )
         with patch(
@@ -690,30 +789,38 @@ tax:
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-rate:
-  source: "Test"
-  from 2024-01-01: 0.1
-
-taxable_income:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+- name: taxable_income
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages - deduction
-
-tax:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages - deduction
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return taxable_income * rate
-
-bonus:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return taxable_income * rate
+- name: bonus
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.5
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.5
 """
         )
         with patch(
@@ -741,29 +848,39 @@ bonus:
         shared = tmp_path / "shared.yaml"
         shared.write_text(
             """
-rate:
-  source: "shared-rate"
-  from 2024-01-01: 0.1
-
-taxable_income:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: shared-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+- name: taxable_income
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages - deduction
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages - deduction
 """
         )
         input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
-import "./shared.yaml"
-
-tax:
+format: rulespec/v1
+imports:
+- ./shared.yaml
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return taxable_income * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return taxable_income * rate
 """
         )
         with patch(
@@ -781,30 +898,46 @@ tax:
         """CLI compile supports module-qualified references through import aliases."""
         (tmp_path / "left.yaml").write_text(
             """
-rate:
-  source: "left-rate"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: left-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """
         )
         (tmp_path / "right.yaml").write_text(
             """
-rate:
-  source: "right-rate"
-  from 2024-01-01: 0.2
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: right-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
 """
         )
         input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
-import "./left.yaml" as left
-import "./right.yaml" as right
-
-tax:
+format: rulespec/v1
+imports:
+- path: ./left.yaml
+  alias: left
+- path: ./right.yaml
+  alias: right
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * left.rate + wages * right.rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * left.rate + wages * right.rate
 """
         )
         with patch(
@@ -821,35 +954,52 @@ tax:
         """CLI compile binds selected exported names without a whole-module import."""
         (tmp_path / "shared.yaml").write_text(
             """
-export rate_public, taxable_income
-
-rate_public:
-  source: "shared-rate"
-  from 2024-01-01: 0.1
-
-hidden_rate:
-  source: "hidden-rate"
-  from 2024-01-01: 0.2
-
-taxable_income:
+format: rulespec/v1
+exports:
+- rate_public
+- taxable_income
+rules:
+- name: rate_public
+  kind: parameter
+  source: shared-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+- name: hidden_rate
+  kind: parameter
+  source: hidden-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
+- name: taxable_income
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages - deduction
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages - deduction
 """
         )
         input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
-from "./shared.yaml" import rate_public as rate, taxable_income
-
-tax:
+format: rulespec/v1
+imports:
+- path: ./shared.yaml
+  symbols:
+  - name: rate_public
+    alias: rate
+  - taxable_income
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return taxable_income * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return taxable_income * rate
 """
         )
         with patch(
@@ -867,14 +1017,19 @@ tax:
         input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
-export tax as benefit_amount
-
-tax:
+format: rulespec/v1
+exports:
+- name: tax
+  alias: benefit_amount
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
 """
         )
         with patch(
@@ -894,21 +1049,27 @@ tax:
         input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
-export tax as benefit_amount
-
-tax:
+format: rulespec/v1
+exports:
+- name: tax
+  alias: benefit_amount
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
-
-bonus:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
+- name: bonus
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.5
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.5
 """
         )
         with patch(
@@ -935,29 +1096,45 @@ bonus:
         """CLI compile resolves re-exported symbols through intermediate modules."""
         (tmp_path / "base.yaml").write_text(
             """
-export private_rate as rate
-
-private_rate:
-  source: "base-rate"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+exports:
+- name: private_rate
+  alias: rate
+rules:
+- name: private_rate
+  kind: parameter
+  source: base-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """
         )
         (tmp_path / "surface.yaml").write_text(
             """
-export from "./base.yaml" import rate
+format: rulespec/v1
+re_exports:
+- path: ./base.yaml
+  symbols:
+  - rate
 """
         )
         input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
-from "./surface.yaml" import rate
-
-tax:
+format: rulespec/v1
+imports:
+- path: ./surface.yaml
+  symbols:
+  - rate
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
         with patch(
@@ -976,24 +1153,36 @@ tax:
         shared.parent.mkdir(parents=True, exist_ok=True)
         shared.write_text(
             """
-export private_rate as rate
-
-private_rate:
-  source: "base-rate"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+exports:
+- name: private_rate
+  alias: rate
+rules:
+- name: private_rate
+  kind: parameter
+  source: base-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """
         )
         input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
-from "tax/shared.yaml" import rate
-
-tax:
+format: rulespec/v1
+imports:
+- path: tax/shared.yaml
+  symbols:
+  - rate
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
         with patch(
@@ -1019,24 +1208,36 @@ tax:
         shared.parent.mkdir(parents=True, exist_ok=True)
         shared.write_text(
             """
-export private_rate as rate
-
-private_rate:
-  source: "base-rate"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+exports:
+- name: private_rate
+  alias: rate
+rules:
+- name: private_rate
+  kind: parameter
+  source: base-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """
         )
         input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
-from "tax/shared.yaml" import rate
-
-tax:
+format: rulespec/v1
+imports:
+- path: tax/shared.yaml
+  symbols:
+  - rate
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
         with patch(
@@ -1064,12 +1265,16 @@ tax:
         input_file = tmp_path / "main.yaml"
         input_file.write_text(
             """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
 """
         )
         with patch("sys.argv", ["rulespec-compile", "compile", str(input_file)]):
@@ -1082,12 +1287,16 @@ tax:
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
 """
         )
         with patch(
@@ -1109,13 +1318,18 @@ tax:
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    while wages > 0:
-      return wages
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      while wages > 0:
+        return wages
 """
         )
         with patch("sys.argv", ["rulespec-compile", "compile", str(input_file)]):
@@ -1132,30 +1346,38 @@ class TestCLIMainLower:
         input_file = tmp_path / "policy.yaml"
         input_file.write_text(
             """
-rate:
-  source: "Test"
-  from 2024-01-01: 0.1
-
-taxable_income:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+- name: taxable_income
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages - deduction
-
-tax:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages - deduction
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return taxable_income * rate
-
-bonus:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return taxable_income * rate
+- name: bonus
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.5
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.5
 """
         )
         with patch(
@@ -1183,13 +1405,18 @@ bonus:
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    if wages > 0:
-      return wages
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      if wages > 0:
+        return wages
 """
         )
         with patch("sys.argv", ["rulespec-compile", "compile", str(input_file)]):
@@ -1202,12 +1429,16 @@ tax:
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return custom_credit(wages)
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return custom_credit(wages)
 """
         )
         with patch("sys.argv", ["rulespec-compile", "compile", str(input_file)]):
@@ -1220,12 +1451,16 @@ tax:
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return 1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return 1
 """
         )
         with patch(
@@ -1242,17 +1477,21 @@ tax:
                 main()
             assert exc_info.value.code == 2
 
-    def test_compile_invalid_parameter_binding_exits_2(self, tmp_path):
-        """Invalid parameter binding syntax is rejected by argparse."""
+    def test_compile_invalid_rule_binding_exits_2(self, tmp_path):
+        """Invalid rule binding syntax is rejected by argparse."""
         input_file = tmp_path / "test.yaml"
         input_file.write_text(
             """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return 1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return 1
 """
         )
         with patch(
@@ -1261,7 +1500,7 @@ tax:
                 "rulespec-compile",
                 "compile",
                 str(input_file),
-                "--parameter",
+                "--binding",
                 "rate[bad]=x",
             ],
         ):
@@ -1269,93 +1508,105 @@ tax:
                 main()
             assert exc_info.value.code == 2
 
-    def test_compile_invalid_parameter_file_exits_1(self, tmp_path):
-        """Invalid parameter files surface a user-facing error."""
+    def test_compile_invalid_binding_file_exits_1(self, tmp_path):
+        """Invalid binding files surface a user-facing error."""
         input_file = tmp_path / "test.yaml"
-        parameter_file = tmp_path / "bindings.json"
+        binding_file = tmp_path / "bindings.json"
         input_file.write_text(
             """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return 1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return 1
 """
         )
-        parameter_file.write_text("{bad json")
+        binding_file.write_text("{bad json")
         with patch(
             "sys.argv",
             [
                 "rulespec-compile",
                 "compile",
                 str(input_file),
-                "--parameter-file",
-                str(parameter_file),
+                "--binding-file",
+                str(binding_file),
             ],
         ):
             with pytest.raises(SystemExit) as exc_info:
                 main()
             assert exc_info.value.code == 1
 
-    def test_compile_malformed_parameter_binding_file_exits_1(self, tmp_path):
-        """Malformed nested binding dicts surface a user-facing error."""
+    def test_compile_malformed_binding_file_exits_1(self, tmp_path):
+        """Malformed binding files surface a user-facing error."""
         input_file = tmp_path / "test.yaml"
-        parameter_file = tmp_path / "bindings.json"
+        binding_file = tmp_path / "bindings.json"
         input_file.write_text(
             """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
-        parameter_file.write_text(json.dumps({"rate": {"schema_version": 1}}))
+        binding_file.write_text(json.dumps({"rate": {"schema_version": 1}}))
         with patch(
             "sys.argv",
             [
                 "rulespec-compile",
                 "compile",
                 str(input_file),
-                "--parameter-file",
-                str(parameter_file),
+                "--binding-file",
+                str(binding_file),
             ],
         ):
             with pytest.raises(SystemExit) as exc_info:
                 main()
             assert exc_info.value.code == 1
 
-    def test_compile_malformed_parameter_list_file_exits_1(self, tmp_path):
+    def test_compile_malformed_binding_list_file_exits_1(self, tmp_path):
         """Malformed list binding payloads surface a user-facing error."""
         input_file = tmp_path / "test.yaml"
-        parameter_file = tmp_path / "bindings.json"
+        binding_file = tmp_path / "bindings.json"
         input_file.write_text(
             """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         )
-        parameter_file.write_text(json.dumps({"rate": [1, "x"]}))
+        binding_file.write_text(json.dumps({"rate": [1, "x"]}))
         with patch(
             "sys.argv",
             [
                 "rulespec-compile",
                 "compile",
                 str(input_file),
-                "--parameter-file",
-                str(parameter_file),
+                "--binding-file",
+                str(binding_file),
             ],
         ):
             with pytest.raises(SystemExit) as exc_info:
@@ -1421,7 +1672,7 @@ class TestCLIMainHarness:
         )
 
     def test_harness_include_live_flag_is_forwarded(self):
-        """harness --include-live forwards the opt-in live compatibility flag."""
+        """harness --include-live forwards the opt-in live flag."""
         summary = HarnessSummary(
             total=1,
             passed=0,

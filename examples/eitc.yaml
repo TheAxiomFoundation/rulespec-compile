@@ -1,73 +1,73 @@
-# 26 USC 32 - Earned Income Tax Credit
-# Tax Year 2025 implementation
-
+format: rulespec/v1
 source:
   lawarchive: us/statute/26/32/2025-01-01
-  citation: "26 USC 32"
-  accessed: 2025-12-12
-
-# Statutory percentages from 26 USC 32(b)(1)
-credit_pct:
-  source: "26 USC 32(b)(1)"
+  citation: 26 USC 32
+  accessed: '2025-12-12'
+rules:
+- name: credit_pct
+  kind: parameter
+  source: 26 USC 32(b)(1)
   values:
     0: 7.65
-    1: 34
-    2: 40
-    3: 45
-
-phaseout_pct:
-  source: "26 USC 32(b)(1)"
+    1: 34.0
+    2: 40.0
+    3: 45.0
+- name: phaseout_pct
+  kind: parameter
+  source: 26 USC 32(b)(1)
   values:
     0: 7.65
     1: 15.98
     2: 21.06
     3: 21.06
-
-# Inflation-adjusted thresholds from Rev. Proc. 2024-40
-earned_income_amount:
-  source: "Rev. Proc. 2024-40"
+- name: earned_income_amount
+  kind: parameter
+  source: Rev. Proc. 2024-40
   values:
-    0: 8484
-    1: 12729
-    2: 17880
-    3: 17880
-
-phaseout_single:
-  source: "Rev. Proc. 2024-40"
+    0: 8484.0
+    1: 12729.0
+    2: 17880.0
+    3: 17880.0
+- name: phaseout_single
+  kind: parameter
+  source: Rev. Proc. 2024-40
   values:
-    0: 10620
-    1: 23350
-    2: 23350
-    3: 23350
-
-phaseout_joint:
-  source: "Rev. Proc. 2024-40"
+    0: 10620.0
+    1: 23350.0
+    2: 23350.0
+    3: 23350.0
+- name: phaseout_joint
+  kind: parameter
+  source: Rev. Proc. 2024-40
   values:
-    0: 17730
-    1: 30470
-    2: 30470
-    3: 30470
-
-eitc:
+    0: 17730.0
+    1: 30470.0
+    2: 30470.0
+    3: 30470.0
+- name: eitc
+  kind: derived
   entity: TaxUnit
   period: Year
   dtype: Money
-  label: "Earned Income Tax Credit"
-  from 2025-01-01:
-    # Cap children at 3 per 32(b)(1)
-    n = min(n_children, 3)
-    credit_pct_rate = credit_pct[n] / 100
-    phaseout_pct_rate = phaseout_pct[n] / 100
-    earned_amount = earned_income_amount[n]
-    phaseout_start = is_joint ? phaseout_joint[n] : phaseout_single[n]
+  label: Earned Income Tax Credit
+  source: 26 USC 32
+  versions:
+  - effective_from: '2025-01-01'
+    formula: |-
+      # Cap children at 3 per 32(b)(1)
+      n = min(n_children, 3)
+      credit_pct_rate = credit_pct[n] / 100
+      phaseout_pct_rate = phaseout_pct[n] / 100
+      earned_amount = earned_income_amount[n]
+      phaseout_start = is_joint ? phaseout_joint[n] : phaseout_single[n]
 
-    # 32(a)(1): Credit percentage of earned income up to earned income amount
-    credit_base = credit_pct_rate * min(earned_income, earned_amount)
+      # 32(a)(1): Credit percentage of earned income up to earned income amount
+      credit_base = credit_pct_rate * min(earned_income, earned_amount)
 
-    # 32(a)(2): Phaseout based on greater of AGI or earned income
-    income_for_phaseout = max(agi, earned_income)
-    excess = max(0, income_for_phaseout - phaseout_start)
-    phaseout = phaseout_pct_rate * excess
+      # 32(a)(2): Phaseout based on greater of AGI or earned income
+      income_for_phaseout = max(agi, earned_income)
+      excess = max(0, income_for_phaseout - phaseout_start)
+      phaseout = phaseout_pct_rate * excess
 
-    # Final credit (non-negative, rounded to nearest dollar)
-    return round(max(0, credit_base - phaseout))
+      # Final credit (non-negative, rounded to nearest dollar)
+      return round(max(0, credit_base - phaseout))

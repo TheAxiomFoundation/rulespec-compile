@@ -1,81 +1,85 @@
-# 26 USC 24 - Child Tax Credit
-# Tax Year 2025 implementation
-
+format: rulespec/v1
 source:
   lawarchive: us/statute/26/24/2025-01-01
-  citation: "26 USC 24"
-  accessed: 2025-12-12
-
-# Statutory amounts from 26 USC 24 (TY2025)
-credit_per_child:
-  source: "26 USC 24(a)"
+  citation: 26 USC 24
+  accessed: '2025-12-12'
+rules:
+- name: credit_per_child
+  kind: parameter
+  source: 26 USC 24(a)
   values:
-    0: 2200
-
-refundable_max:
-  source: "26 USC 24(d)(1)(B)"
+    0: 2200.0
+- name: refundable_max
+  kind: parameter
+  source: 26 USC 24(d)(1)(B)
   values:
-    0: 1900
-
-refundable_rate:
-  source: "26 USC 24(d)(1)(A)"
+    0: 1900.0
+- name: refundable_rate
+  kind: parameter
+  source: 26 USC 24(d)(1)(A)
   values:
-    0: 15
-
-refundable_threshold:
-  source: "26 USC 24(d)(1)(A)"
+    0: 15.0
+- name: refundable_threshold
+  kind: parameter
+  source: 26 USC 24(d)(1)(A)
   values:
-    0: 2500
-
-phaseout_single:
-  source: "26 USC 24(b)(2)"
+    0: 2500.0
+- name: phaseout_single
+  kind: parameter
+  source: 26 USC 24(b)(2)
   values:
-    0: 200000
-
-phaseout_joint:
-  source: "26 USC 24(b)(2)"
+    0: 200000.0
+- name: phaseout_joint
+  kind: parameter
+  source: 26 USC 24(b)(2)
   values:
-    0: 400000
-
-phaseout_rate:
-  source: "26 USC 24(b)(1)"
+    0: 400000.0
+- name: phaseout_rate
+  kind: parameter
+  source: 26 USC 24(b)(1)
   values:
-    0: 50
-
-ctc:
+    0: 50.0
+- name: ctc
+  kind: derived
   entity: TaxUnit
   period: Year
   dtype: Money
-  label: "Child Tax Credit"
-  from 2025-01-01:
-    # 24(a): Base credit per qualifying child
-    base_credit = n_qualifying_children * credit_per_child[0]
+  label: Child Tax Credit
+  source: 26 USC 24
+  versions:
+  - effective_from: '2025-01-01'
+    formula: |-
+      # 24(a): Base credit per qualifying child
+      base_credit = n_qualifying_children * credit_per_child[0]
 
-    # 24(b): Phaseout for high earners
-    phaseout_start = is_joint ? phaseout_joint[0] : phaseout_single[0]
-    excess = max(0, agi - phaseout_start)
-    # Phaseout is $50 per $1,000 over threshold (rounded up)
-    phaseout_amount = ceil(excess / 1000) * phaseout_rate[0]
+      # 24(b): Phaseout for high earners
+      phaseout_start = is_joint ? phaseout_joint[0] : phaseout_single[0]
+      excess = max(0, agi - phaseout_start)
+      # Phaseout is $50 per $1,000 over threshold (rounded up)
+      phaseout_amount = ceil(excess / 1000) * phaseout_rate[0]
 
-    # Credit after phaseout (can't go below zero)
-    credit_after_phaseout = max(0, base_credit - phaseout_amount)
+      # Credit after phaseout (can't go below zero)
+      credit_after_phaseout = max(0, base_credit - phaseout_amount)
 
-    return round(credit_after_phaseout)
-
-actc:
+      return round(credit_after_phaseout)
+- name: actc
+  kind: derived
   entity: TaxUnit
   period: Year
   dtype: Money
-  label: "Additional Child Tax Credit (Refundable)"
-  from 2025-01-01:
-    # 24(d): Refundable portion (ACTC)
-    # 15% of earned income above $2,500, up to $1,700 per child
-    earned_income_above_threshold = max(0, earned_income - refundable_threshold[0])
-    refundable_by_earnings = earned_income_above_threshold * refundable_rate[0] / 100
-    max_refundable = n_qualifying_children * refundable_max[0]
+  label: Additional Child Tax Credit (Refundable)
+  source: 26 USC 24
+  versions:
+  - effective_from: '2025-01-01'
+    formula: |-
+      # 24(d): Refundable portion (ACTC)
+      # 15% of earned income above $2,500, up to $1,700 per child
+      earned_income_above_threshold = max(0, earned_income - refundable_threshold[0])
+      refundable_by_earnings = earned_income_above_threshold * refundable_rate[0] / 100
+      max_refundable = n_qualifying_children * refundable_max[0]
 
-    # ACTC is the lesser of: refundable calc or unused nonrefundable credit
-    # (Simplified: assuming all CTC would be refundable if earned income qualifies)
-    actc_amount = min(refundable_by_earnings, max_refundable)
+      # ACTC is the lesser of: refundable calc or unused nonrefundable credit
+      # (Simplified: assuming all CTC would be refundable if earned income qualifies)
+      actc_amount = min(refundable_by_earnings, max_refundable)
 
-    return round(actc_amount)
+      return round(actc_amount)

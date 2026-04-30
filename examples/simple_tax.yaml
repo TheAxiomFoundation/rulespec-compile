@@ -1,18 +1,20 @@
-# Simple Tax Calculator
-# A minimal example of .yaml syntax
-
+format: rulespec/v1
 source:
-  citation: "Example Tax Code"
-  accessed: 2025-01-01
-
-rate:
-  source: "example/tax/rate"
-
-tax:
+  citation: Example Tax Code
+  accessed: '2025-01-01'
+rules:
+- name: rate
+  kind: parameter
+  source: example/tax/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  label: "Income Tax"
-  from 2025-01-01:
-    # Simple flat tax
-    return income * 0.2
+  label: Income Tax
+  source: Example Tax Code
+  versions:
+  - effective_from: '2025-01-01'
+    formula: |-
+      # Simple flat tax
+      return income * 0.2

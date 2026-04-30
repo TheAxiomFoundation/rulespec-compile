@@ -20,7 +20,6 @@ from .calculators import (
     calculate_snap_benefit,
 )
 from .compile_model import CompilationError
-from .parameter_bindings import ParameterBindingError
 from .parser import parse_rulespec
 from .program import load_rulespec_program
 from .rule_bindings import load_rule_bindings_file, merge_rule_bindings
@@ -46,7 +45,7 @@ class HarnessCase:
     workspace_binding_files: tuple[str, ...] = ()
     targets: tuple[str, ...] = ("js", "python", "rust")
     effective_date: str | None = None
-    parameter_overrides: dict[str, Any] | None = None
+    rule_bindings: dict[str, Any] | None = None
     outputs: list[str] | None = None
     inputs: dict[str, Any] | None = None
     expected_input_names: list[str] | None = None
@@ -117,16 +116,22 @@ HARNESS_CASES: tuple[HarnessCase, ...] = (
         category="core",
         description="Straight-line formulas compile for all supported targets.",
         rulespec="""
-rate:
-  source: "Test"
-  from 2024-01-01: 0.2
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """,
         inputs={"wages": 100},
         expected_outputs={"tax": 20},
@@ -136,16 +141,22 @@ tax:
         category="core",
         description="Scalar comparison expressions execute correctly.",
         rulespec="""
-threshold:
-  source: "Test"
-  from 2024-01-01: 1000
-
-flag:
+format: rulespec/v1
+rules:
+- name: threshold
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '1000'
+- name: flag
+  kind: derived
   entity: Person
   period: Year
   dtype: Bool
-  from 2024-01-01:
-    return wages <= threshold
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages <= threshold
 """,
         inputs={"wages": 500},
         expected_outputs={"flag": True},
@@ -155,13 +166,18 @@ flag:
         category="core",
         description="Terminal bare expressions are treated as implicit returns.",
         rulespec="""
-result:
+format: rulespec/v1
+rules:
+- name: result
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    tmp = wages + 1
-    tmp
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      tmp = wages + 1
+      tmp
 """,
         inputs={"wages": 10},
         expected_outputs={"result": 11},
@@ -171,14 +187,18 @@ result:
         category="temporal",
         description="Temporal formulas resolve with an effective date.",
         rulespec="""
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
-  from 2025-01-01:
-    return wages * 0.2
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
+  - effective_from: '2025-01-01'
+    formula: return wages * 0.2
 """,
         effective_date="2025-06-01",
         inputs={"wages": 100},
@@ -189,17 +209,21 @@ tax:
         category="bindings",
         description="Source-only parameters compile with explicit bindings.",
         rulespec="""
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """,
-        parameter_overrides={"rate": 0.25},
+        rule_bindings={"rate": 0.25},
         inputs={"wages": 100},
         expected_outputs={"tax": 25},
     ),
@@ -208,16 +232,21 @@ tax:
         category="control_flow",
         description="If/else formulas compile and execute correctly.",
         rulespec="""
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    if is_joint:
-      rate = 0.1
-    else:
-      rate = 0.2
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      if is_joint:
+        rate = 0.1
+      else:
+        rate = 0.2
+      return wages * rate
 """,
         inputs={"wages": 100, "is_joint": True},
         expected_outputs={"tax": 10},
@@ -229,21 +258,26 @@ tax:
             "Batch execution handles branch-local assignments and skips dead branches."
         ),
         rulespec="""
-threshold:
-  source: "Test"
+format: rulespec/v1
+rules:
+- name: threshold
+  kind: parameter
+  source: Test
   values:
-    0: 100
-
-tax:
+    0: 100.0
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    if is_joint:
-      rate = 0.1
-      return wages * rate
-    else:
-      return threshold[n_children]
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      if is_joint:
+        rate = 0.1
+        return wages * rate
+      else:
+        return threshold[n_children]
 """,
         inputs={"wages": 100, "is_joint": True, "n_children": 0},
         expected_outputs={"tax": 10},
@@ -259,30 +293,38 @@ tax:
         category="subgraph",
         description="Selected outputs prune to the reachable variable graph.",
         rulespec="""
-rate:
-  source: "Test"
-  from 2024-01-01: 0.1
-
-taxable_income:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+- name: taxable_income
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages - deduction
-
-tax:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages - deduction
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return taxable_income * rate
-
-bonus:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return taxable_income * rate
+- name: bonus
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.5
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.5
 """,
         outputs=["tax"],
         inputs={"wages": 1000, "deduction": 100},
@@ -293,35 +335,47 @@ bonus:
         category="graph",
         description="Imported helpers compile through the reachable cross-file graph.",
         rulespec="""
-import "./shared.yaml"
-
-tax:
+format: rulespec/v1
+imports:
+- ./shared.yaml
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return taxable_income * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return taxable_income * rate
 """,
         supporting_files={
             "shared.yaml": """
-rate:
-  source: "shared-rate"
-  from 2024-01-01: 0.1
-
-taxable_income:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: shared-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+- name: taxable_income
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages - deduction
-
-bonus:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages - deduction
+- name: bonus
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    while wages > 0:
-      return wages
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      while wages > 0:
+        return wages
 """
         },
         outputs=["tax"],
@@ -333,26 +387,42 @@ bonus:
         category="graph",
         description="Import aliases allow duplicate symbol names across modules.",
         rulespec="""
-import "./left.yaml" as left
-import "./right.yaml" as right
-
-tax:
+format: rulespec/v1
+imports:
+- path: ./left.yaml
+  alias: left
+- path: ./right.yaml
+  alias: right
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * left.rate + wages * right.rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * left.rate + wages * right.rate
 """,
         supporting_files={
             "left.yaml": """
-rate:
-  source: "left-rate"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: left-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """,
             "right.yaml": """
-rate:
-  source: "right-rate"
-  from 2024-01-01: 0.2
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: right-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
 """,
         },
         inputs={"wages": 100},
@@ -363,33 +433,50 @@ rate:
         category="graph",
         description="Selective imports respect explicit module exports.",
         rulespec="""
-from "./shared.yaml" import rate_public as rate, taxable_income
-
-tax:
+format: rulespec/v1
+imports:
+- path: ./shared.yaml
+  symbols:
+  - name: rate_public
+    alias: rate
+  - taxable_income
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return taxable_income * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return taxable_income * rate
 """,
         supporting_files={
             "shared.yaml": """
-export rate_public, taxable_income
-
-rate_public:
-  source: "shared-rate"
-  from 2024-01-01: 0.1
-
-hidden_rate:
-  source: "hidden-rate"
-  from 2024-01-01: 0.2
-
-taxable_income:
+format: rulespec/v1
+exports:
+- rate_public
+- taxable_income
+rules:
+- name: rate_public
+  kind: parameter
+  source: shared-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+- name: hidden_rate
+  kind: parameter
+  source: hidden-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
+- name: taxable_income
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages - deduction
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages - deduction
 """,
         },
         inputs={"wages": 1000, "deduction": 100},
@@ -400,23 +487,37 @@ taxable_income:
         category="graph",
         description="Export aliases define public import names and result keys.",
         rulespec="""
-from "./shared.yaml" import rate
-export tax as benefit_amount
-
-tax:
+format: rulespec/v1
+imports:
+- path: ./shared.yaml
+  symbols:
+  - rate
+exports:
+- name: tax
+  alias: benefit_amount
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """,
         supporting_files={
             "shared.yaml": """
-export private_rate as rate
-
-private_rate:
-  source: "shared-rate"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+exports:
+- name: private_rate
+  alias: rate
+rules:
+- name: private_rate
+  kind: parameter
+  source: shared-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """
         },
         inputs={"wages": 100},
@@ -427,18 +528,28 @@ private_rate:
         category="graph",
         description="Modules can re-export imported symbols into a new public surface.",
         rulespec="""
-export from "./upstream.yaml" import upstream_benefit as benefit_amount
+format: rulespec/v1
+re_exports:
+- path: ./upstream.yaml
+  symbols:
+  - name: upstream_benefit
+    alias: benefit_amount
 """,
         supporting_files={
             "upstream.yaml": """
-export tax as upstream_benefit
-
-tax:
+format: rulespec/v1
+exports:
+- name: tax
+  alias: upstream_benefit
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
 """
         },
         inputs={"wages": 100},
@@ -449,14 +560,20 @@ tax:
         category="graph",
         description="Bare imports resolve through rulespec.toml module roots.",
         rulespec="""
-from "tax/shared.yaml" import rate
-
-tax:
+format: rulespec/v1
+imports:
+- path: tax/shared.yaml
+  symbols:
+  - rate
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """,
         supporting_files={
             "rulespec.toml": """
@@ -464,11 +581,17 @@ tax:
 roots = ["./lib"]
 """,
             "lib/tax/shared.yaml": """
-export private_rate as rate
-
-private_rate:
-  source: "base-rate"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+exports:
+- name: private_rate
+  alias: rate
+rules:
+- name: private_rate
+  kind: parameter
+  source: base-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """,
         },
         inputs={"wages": 100},
@@ -479,14 +602,20 @@ private_rate:
         category="graph",
         description="Workspace package aliases resolve stable bare import prefixes.",
         rulespec="""
-from "tax/shared.yaml" import rate
-
-tax:
+format: rulespec/v1
+imports:
+- path: tax/shared.yaml
+  symbols:
+  - rate
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """,
         supporting_files={
             "rulespec.toml": """
@@ -494,11 +623,17 @@ tax:
 tax = "./packages/tax"
 """,
             "packages/tax/shared.yaml": """
-export private_rate as rate
-
-private_rate:
-  source: "base-rate"
-  from 2024-01-01: 0.1
+format: rulespec/v1
+exports:
+- name: private_rate
+  alias: rate
+rules:
+- name: private_rate
+  kind: parameter
+  source: base-rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
 """,
         },
         inputs={"wages": 100},
@@ -509,13 +644,18 @@ private_rate:
         category="unsupported",
         description="Unsupported loops fail loudly instead of compiling.",
         rulespec="""
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    while wages > 0:
-      return wages
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      while wages > 0:
+        return wages
 """,
         expected_error="unsupported statement 'while'",
     ),
@@ -755,8 +895,10 @@ def _run_case(case: HarnessCase) -> HarnessResult:
         expected_outputs = _resolve_expected_outputs(case)
         lowered_program = program.to_lowered_program(
             effective_date=case.effective_date,
-            parameter_overrides=case.parameter_overrides,
-            rule_bindings=_load_case_rule_bindings(case),
+            rule_bindings=merge_rule_bindings(
+                case.rule_bindings,
+                _load_case_rule_bindings(case),
+            ),
             outputs=case.outputs,
         )
         lowered_detail = _check_lowered_program(
@@ -932,7 +1074,7 @@ def _run_case(case: HarnessCase) -> HarnessResult:
             status="failed",
             detail=str(exc),
         )
-    except (CompilationError, ParameterBindingError) as exc:
+    except CompilationError as exc:
         if case.expected_error and case.expected_error in str(exc):
             return HarnessResult(
                 case=case.name,

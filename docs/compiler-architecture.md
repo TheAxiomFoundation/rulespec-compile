@@ -121,7 +121,7 @@ cannot represent safely. Known gaps:
 
 The rationale is intentional: the Rust path fails loudly outside its validated
 subset rather than silently emitting code with surprising semantics. Broadening
-the subset should be a deliberate decision (see Decision Seam E below).
+the subset should be a deliberate decision (see Decision Seam D below).
 
 ## Stable vs In Progress
 
@@ -155,20 +155,7 @@ the subset should be a deliberate decision (see Decision Seam E below).
 
 These are the places where product or architecture guidance matters most.
 
-### A. External source of truth
-
-Question:
-What artifact or service should supply source-only external rule bindings for a
-given `(module_identity, symbol, effective_date)`?
-
-Why it matters:
-The compiler can now point at the right rule identity, but it still needs a
-first-class resolver contract instead of raw override maps.
-
-See `docs/decision-seam-a.md` for a concrete draft of the proposed unified
-resolver contract and migration path.
-
-### B. Rule identity policy
+### A. Rule identity policy
 
 Question:
 What exactly counts as the canonical RuleSpec identity path outside the current
@@ -178,7 +165,7 @@ Why it matters:
 `module_identity` now flows into imports, bindings, lowered metadata, and
 citations. Naming policy is no longer cosmetic.
 
-### C. Validation oracle policy
+### B. Validation oracle policy
 
 Question:
 Which outputs should be continuously checked against reference calculators,
@@ -188,7 +175,7 @@ Why it matters:
 The harness and validation lanes now exist, but “what counts as green” is a
 policy decision as much as a technical one.
 
-### D. Package/workspace model
+### C. Package/workspace model
 
 Question:
 Should RuleSpec libraries be addressed only by workspace aliases, or do they need a
@@ -198,7 +185,7 @@ Why it matters:
 Import resolution works today, but the long-term authoring model for a larger
 policy graph is still open.
 
-### E. Supported RuleSpec subset
+### D. Supported RuleSpec subset
 
 Question:
 Which language features are actually worth supporting next, versus staying

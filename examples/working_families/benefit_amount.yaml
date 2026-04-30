@@ -1,19 +1,27 @@
-# Example Working Families Act § 102
-
+format: rulespec/v1
 source:
-  citation: "Example Working Families Act § 102"
-  accessed: 2025-01-01
-
-import "./base_amount.yaml" as base
-
-export from "./base_amount.yaml" import base_amount
-export benefit as benefit_amount
-
-benefit:
+  citation: "Example Working Families Act \xA7 102"
+  accessed: '2025-01-01'
+imports:
+- path: ./base_amount.yaml
+  alias: base
+exports:
+- name: benefit
+  alias: benefit_amount
+re_exports:
+- path: ./base_amount.yaml
+  symbols:
+  - base_amount
+rules:
+- name: benefit
+  kind: derived
   entity: TaxUnit
   period: Year
   dtype: Money
-  label: "Working Families Benefit"
-  from 2025-01-01:
-    eligible_amount = has_qualifying_child ? base.base_amount : 0
-    return round(max(0, eligible_amount))
+  label: Working Families Benefit
+  source: "Example Working Families Act \xA7 102"
+  versions:
+  - effective_from: '2025-01-01'
+    formula: |-
+      eligible_amount = has_qualifying_child ? base.base_amount : 0
+      return round(max(0, eligible_amount))

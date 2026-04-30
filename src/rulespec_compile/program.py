@@ -42,7 +42,6 @@ class RuleSpecProgram:
         self,
         effective_date=None,
         rule_bindings: dict[str, Any] | None = None,
-        parameter_overrides: dict[str, Any] | None = None,
         outputs: list[str] | None = None,
     ):
         """Compile the merged program graph through the shared compile model."""
@@ -55,7 +54,6 @@ class RuleSpecProgram:
         return merged.to_compile_model(
             effective_date=effective_date,
             rule_bindings=rule_bindings,
-            parameter_overrides=parameter_overrides,
             outputs=selected_outputs,
         ).with_public_outputs(public_output_bindings)
 
@@ -63,14 +61,12 @@ class RuleSpecProgram:
         self,
         effective_date=None,
         rule_bindings: dict[str, Any] | None = None,
-        parameter_overrides: dict[str, Any] | None = None,
         outputs: list[str] | None = None,
     ):
         """Build a JS generator for the merged program graph."""
         return self.to_compile_model(
             effective_date=effective_date,
             rule_bindings=rule_bindings,
-            parameter_overrides=parameter_overrides,
             outputs=outputs,
         ).to_js_generator()
 
@@ -78,14 +74,12 @@ class RuleSpecProgram:
         self,
         effective_date=None,
         rule_bindings: dict[str, Any] | None = None,
-        parameter_overrides: dict[str, Any] | None = None,
         outputs: list[str] | None = None,
     ):
         """Build a lowered program bundle for the merged graph."""
         return self.to_compile_model(
             effective_date=effective_date,
             rule_bindings=rule_bindings,
-            parameter_overrides=parameter_overrides,
             outputs=outputs,
         ).to_lowered_program()
 
@@ -93,14 +87,12 @@ class RuleSpecProgram:
         self,
         effective_date=None,
         rule_bindings: dict[str, Any] | None = None,
-        parameter_overrides: dict[str, Any] | None = None,
         outputs: list[str] | None = None,
     ):
         """Build a Python generator for the merged program graph."""
         return self.to_compile_model(
             effective_date=effective_date,
             rule_bindings=rule_bindings,
-            parameter_overrides=parameter_overrides,
             outputs=outputs,
         ).to_python_generator()
 
@@ -108,14 +100,12 @@ class RuleSpecProgram:
         self,
         effective_date=None,
         rule_bindings: dict[str, Any] | None = None,
-        parameter_overrides: dict[str, Any] | None = None,
         outputs: list[str] | None = None,
     ):
         """Build a Rust generator for the merged program graph."""
         return self.to_compile_model(
             effective_date=effective_date,
             rule_bindings=rule_bindings,
-            parameter_overrides=parameter_overrides,
             outputs=outputs,
         ).to_rust_generator()
 

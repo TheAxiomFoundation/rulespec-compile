@@ -162,17 +162,24 @@ class TestRustCodeGenerator:
     def test_lowered_program_round_trips_and_generates_rust(self):
         """Lowered bundles can round-trip into executable Rust output."""
         rulespec = """
-rate:
-  source: "Test"
-  from 2024-01-01: 0.2
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    taxable_income = wages - deduction
-    return taxable_income * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      taxable_income = wages - deduction
+      return taxable_income * rate
 """
         lowered = parse_rulespec(rulespec).to_lowered_program(outputs=["tax"])
         round_trip = LoweredProgram.from_json(lowered.to_json())
@@ -190,16 +197,21 @@ tax:
     def test_branching_formula_executes_in_rust(self):
         """Rust generation handles branch-assigned locals used later."""
         rulespec = """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    if is_joint:
-      rate = 0.1
-    else:
-      rate = 0.2
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      if is_joint:
+        rate = 0.1
+      else:
+        rate = 0.2
+      return wages * rate
 """
         lowered = parse_rulespec(rulespec).to_lowered_program()
         code = lowered.to_rust_generator().generate()
@@ -212,13 +224,18 @@ tax:
     def test_boolean_local_slots_are_typed_in_rust(self):
         """Boolean locals emit typed Option<bool> slots in Rust."""
         rulespec = """
-flag:
+format: rulespec/v1
+rules:
+- name: flag
+  kind: derived
   entity: Person
   period: Year
   dtype: Bool
-  from 2024-01-01:
-    eligible = wages <= 1000
-    return eligible
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      eligible = wages <= 1000
+      return eligible
 """
         lowered = parse_rulespec(rulespec).to_lowered_program()
         code = lowered.to_rust_generator().generate()
@@ -231,12 +248,16 @@ flag:
     def test_integer_outputs_remain_integer_at_rust_boundary(self):
         """Typed lowered outputs emit Integer values instead of Number."""
         rulespec = """
-count:
+format: rulespec/v1
+rules:
+- name: count
+  kind: derived
   entity: Person
   period: Year
   dtype: Integer
-  from 2024-01-01:
-    return n_children + 1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return n_children + 1
 """
         lowered = parse_rulespec(rulespec).to_lowered_program()
         code = lowered.to_rust_generator().generate()
@@ -312,16 +333,22 @@ count:
     def test_integer_scalar_parameter_reference_stays_exact_in_rust(self):
         """Direct integer parameter references emit exact i64 helpers and outputs."""
         rulespec = """
-bonus:
-  source: "Test"
-  from 2024-01-01: 2
-
-count:
+format: rulespec/v1
+rules:
+- name: bonus
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '2'
+- name: count
+  kind: derived
   entity: Person
   period: Year
   dtype: Integer
-  from 2024-01-01:
-    return n_children + bonus
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return n_children + bonus
 """
         lowered = parse_rulespec(rulespec).to_lowered_program()
         code = lowered.to_rust_generator().generate()
@@ -334,18 +361,22 @@ count:
     def test_integer_indexed_parameter_lookup_stays_exact_in_rust(self):
         """Indexed integer parameter lookups preserve exact integer kinds in Rust."""
         rulespec = """
-allowances:
-  source: "external/allowances"
-
-count:
+format: rulespec/v1
+rules:
+- name: allowances
+  kind: parameter
+  source: external/allowances
+- name: count
+  kind: derived
   entity: Person
   period: Year
   dtype: Integer
-  from 2024-01-01:
-    return allowances[n_children]
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return allowances[n_children]
 """
         lowered = parse_rulespec(rulespec).to_lowered_program(
-            parameter_overrides={"allowances": [1, 2]}
+            rule_bindings={"allowances": [1, 2]}
         )
         code = lowered.to_rust_generator().generate()
 
@@ -357,12 +388,16 @@ count:
     def test_rust_generation_rejects_string_formula_literals(self):
         """Rust generation fails loudly on unsupported string formulas."""
         rulespec = """
-name:
+format: rulespec/v1
+rules:
+- name: name
+  kind: derived
   entity: Person
   period: Year
   dtype: Text
-  from 2024-01-01:
-    return "hello"
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return "hello"
 """
         with pytest.raises(ValueError) as exc_info:
             parse_rulespec(rulespec).to_rust_generator().generate()

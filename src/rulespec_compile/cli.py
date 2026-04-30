@@ -121,10 +121,10 @@ def _build_rule_bindings(
     bindings: list[tuple[str, int, float]] | None,
 ) -> dict[str, dict[int, float]]:
     """Aggregate repeated CLI rule bindings."""
-    overrides: dict[str, dict[int, float]] = {}
+    bindings_by_name: dict[str, dict[int, float]] = {}
     for name, index, value in bindings or []:
-        overrides.setdefault(name, {})[index] = value
-    return overrides
+        bindings_by_name.setdefault(name, {})[index] = value
+    return bindings_by_name
 
 
 def _load_rule_binding_files(paths: list[Path] | None) -> Any:
@@ -186,18 +186,6 @@ def _add_program_compile_arguments(command_parser: argparse.ArgumentParser) -> N
         help="Load external rule bindings from JSON or YAML bundle files",
     )
     command_parser.add_argument(
-        "--parameter",
-        action="append",
-        type=_parse_rule_binding,
-        help=argparse.SUPPRESS,
-    )
-    command_parser.add_argument(
-        "--parameter-file",
-        action="append",
-        type=Path,
-        help=argparse.SUPPRESS,
-    )
-    command_parser.add_argument(
         "--select-output",
         action="append",
         metavar="NAME",
@@ -230,12 +218,10 @@ def _load_program_compile_inputs(args) -> tuple[Any, dict[str, Any]]:
     )
     file_rule_bindings = merge_rule_bindings(
         _load_rule_binding_files(args.binding_file),
-        _load_rule_binding_files(args.parameter_file),
     )
     rule_bindings = merge_rule_bindings(
         file_rule_bindings,
         _build_rule_bindings(args.binding),
-        _build_rule_bindings(args.parameter),
     )
     return rulespec_program, rule_bindings
 

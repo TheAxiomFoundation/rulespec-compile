@@ -108,26 +108,20 @@ class TestRuleBindings:
         with pytest.raises(RuleBindingError, match="has only effective-dated bindings"):
             resolver.resolve(module_identity="shared", symbol="rate")
 
-    def test_load_rule_binding_file_rejects_removed_override_artifacts(self, tmp_path):
-        """Removed override-artifact YAML fails with migration guidance."""
+    def test_load_rule_binding_file_rejects_rulespec_files(self, tmp_path):
+        """Binding files must use the rule-binding schema, not RuleSpec sources."""
         path = tmp_path / "artifact.yaml"
         path.write_text(
             """
-source:
-  document: "Rev. Proc. 2023-34"
-  section: "3.06"
-  url: "https://www.irs.gov/example"
-  effective_date: 2024-01-01
-
-earned_income_amount:
-  implements: statutes/26/32/j/1
-  overrides: statutes/26/32/b/2/A/base_amounts#earned_income_amount
-  indexed_by: num_qualifying_children
+format: rulespec/v1
+rules:
+- name: earned_income_amount
+  kind: parameter
   values:
-    0: 8260
-    1: 12390
+    0: 8260.0
+    1: 12390.0
 """
         )
 
-        with pytest.raises(RuleBindingError, match="removed override-artifact syntax"):
+        with pytest.raises(RuleBindingError, match="not a supported rule-binding file"):
             load_rule_bindings_file(path)

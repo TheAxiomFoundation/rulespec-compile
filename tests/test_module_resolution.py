@@ -22,7 +22,15 @@ roots = ["./lib", "./shared"]
         )
         entry = tmp_path / "policy" / "main.yaml"
         entry.parent.mkdir(parents=True, exist_ok=True)
-        entry.write_text("tax:\n  entity: Person\n  period: Year\n  dtype: Money\n")
+        entry.write_text("""
+format: rulespec/v1
+rules:
+- name: tax
+  kind: input
+  entity: Person
+  period: Year
+  dtype: Money
+""")
 
         config = discover_module_resolution(entry)
 
@@ -42,9 +50,24 @@ roots = ["./lib"]
         )
         target = tmp_path / "lib" / "tax" / "shared.yaml"
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text('rate:\n  source: "x"\n  from 2024-01-01: 0.1\n')
+        target.write_text("""
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: x
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+""")
         entry = tmp_path / "main.yaml"
-        entry.write_text('from "tax/shared.yaml" import rate\n')
+        entry.write_text("""
+format: rulespec/v1
+imports:
+- path: tax/shared.yaml
+  symbols:
+  - rate
+""")
 
         resolver = build_import_resolver(entry)
 
@@ -57,9 +80,24 @@ roots = ["./lib"]
         for root in (first, second):
             target = root / "tax" / "shared.yaml"
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text('rate:\n  source: "x"\n  from 2024-01-01: 0.1\n')
+            target.write_text("""
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: x
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+""")
         entry = tmp_path / "main.yaml"
-        entry.write_text('from "tax/shared.yaml" import rate\n')
+        entry.write_text("""
+format: rulespec/v1
+imports:
+- path: tax/shared.yaml
+  symbols:
+  - rate
+""")
 
         resolver = build_import_resolver(entry, module_roots=[first, second])
 
@@ -77,7 +115,15 @@ benefits = "./benefits"
         )
         entry = tmp_path / "policy" / "main.yaml"
         entry.parent.mkdir(parents=True, exist_ok=True)
-        entry.write_text("tax:\n  entity: Person\n  period: Year\n  dtype: Money\n")
+        entry.write_text("""
+format: rulespec/v1
+rules:
+- name: tax
+  kind: input
+  entity: Person
+  period: Year
+  dtype: Money
+""")
 
         config = discover_module_resolution(entry)
 
@@ -96,9 +142,24 @@ tax = "./packages/tax"
         )
         target = tmp_path / "packages" / "tax" / "shared.yaml"
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text('rate:\n  source: "x"\n  from 2024-01-01: 0.1\n')
+        target.write_text("""
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: x
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+""")
         entry = tmp_path / "main.yaml"
-        entry.write_text('from "tax/shared.yaml" import rate\n')
+        entry.write_text("""
+format: rulespec/v1
+imports:
+- path: tax/shared.yaml
+  symbols:
+  - rate
+""")
 
         resolver = build_import_resolver(entry)
 
@@ -113,7 +174,13 @@ tax = "./packages/tax"
 """
         )
         entry = tmp_path / "main.yaml"
-        entry.write_text('from "tax/shared.yaml" import rate\n')
+        entry.write_text("""
+format: rulespec/v1
+imports:
+- path: tax/shared.yaml
+  symbols:
+  - rate
+""")
 
         with pytest.raises(ModuleResolutionError, match="configured more than once"):
             build_import_resolver(

@@ -381,7 +381,7 @@ class TestComparisonResults:
         assert "RuleSpec execution mode: compiled_example" in report
         assert "PolicyEngine execution mode: policyengine_household" in report
         assert "EITC Comparison:" in report
-        assert "Matches:" in report
+        assert "Matches:     100 (100.00%)" in report
 
     def test_detailed_report_with_mismatches(self):
         results = self._make_results(with_mismatches=True)

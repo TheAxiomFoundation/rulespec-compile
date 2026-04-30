@@ -17,17 +17,24 @@ class TestCompiledModule:
     def test_extracts_inputs_from_formula_references(self):
         """Free references become explicit calculator inputs."""
         rulespec = """
-rate:
-  source: "Test"
-  from 2024-01-01: 0.2
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    base_income = wages + tips
-    return round(base_income * rate)
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      base_income = wages + tips
+      return round(base_income * rate)
 """
         module = parse_rulespec(rulespec).to_compile_model()
 
@@ -41,18 +48,22 @@ tax:
     def test_no_formula_variables_become_declared_inputs(self):
         """No-formula rules participate as typed inputs instead of computations."""
         rulespec = """
-is_us_citizen_national_or_resident:
+format: rulespec/v1
+rules:
+- name: is_us_citizen_national_or_resident
+  kind: input
   entity: Person
   period: Year
   dtype: Boolean
   default: false
-
-ctc_meets_citizenship_requirement:
+- name: ctc_meets_citizenship_requirement
+  kind: derived
   entity: Person
   period: Year
   dtype: Boolean
-  from 1998-01-01:
-    is_us_citizen_national_or_resident
+  versions:
+  - effective_from: '1998-01-01'
+    formula: is_us_citizen_national_or_resident
 """
         module = parse_rulespec(rulespec).to_compile_model()
         lowered = parse_rulespec(rulespec).to_lowered_program()
@@ -78,31 +89,40 @@ ctc_meets_citizenship_requirement:
         shared.parent.mkdir(parents=True)
         shared.write_text(
             """
-wages:
+format: rulespec/v1
+rules:
+- name: wages
+  kind: input
   entity: Person
   period: Year
   dtype: Money
-
-taxable_amount:
+- name: taxable_amount
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    wages * 2
+  versions:
+  - effective_from: '2024-01-01'
+    formula: wages * 2
 """
         )
         entry = tmp_path / "statutes" / "shared" / "benefit.yaml"
         entry.write_text(
             """
+format: rulespec/v1
 imports:
-  - statutes/shared/rate#taxable_amount
-
-benefit:
+- path: statutes/shared/rate
+  symbols:
+  - taxable_amount
+rules:
+- name: benefit
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    taxable_amount + base_amount
+  versions:
+  - effective_from: '2024-01-01'
+    formula: taxable_amount + base_amount
 """
         )
 
@@ -119,17 +139,21 @@ benefit:
     def test_no_formula_variables_without_explicit_defaults_use_typed_fallbacks(self):
         """Declared inputs without defaults fall back from dtype, not heuristics."""
         rulespec = """
-full_time_student_months:
+format: rulespec/v1
+rules:
+- name: full_time_student_months
+  kind: input
   entity: Person
   period: Year
   dtype: Integer
-
-is_full_time_student:
+- name: is_full_time_student
+  kind: derived
   entity: Person
   period: Year
   dtype: Boolean
-  from 2002-01-01:
-    full_time_student_months >= 5
+  versions:
+  - effective_from: '2002-01-01'
+    formula: full_time_student_months >= 5
 """
         module = parse_rulespec(rulespec).to_compile_model()
 
@@ -142,18 +166,24 @@ is_full_time_student:
     def test_scalar_external_rule_with_metadata_compiles_as_parameter(self):
         """Entity-less scalar rules with metadata stay external values, not inputs."""
         rulespec = """
-phase_in_rate:
+format: rulespec/v1
+rules:
+- name: phase_in_rate
+  kind: parameter
   dtype: Rate
   unit: rate
-  source: "26 USC 32(b)(1)"
-  from 2024-01-01: 0.25
-
-benefit_amount:
+  source: 26 USC 32(b)(1)
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.25'
+- name: benefit_amount
+  kind: derived
   entity: TaxUnit
   period: Year
   dtype: Money
-  from 2024-01-01:
-    wages * phase_in_rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: wages * phase_in_rate
 """
         module = parse_rulespec(rulespec).to_compile_model()
 
@@ -164,14 +194,19 @@ benefit_amount:
     def test_scalar_computed_rule_without_entity_compiles_as_output(self):
         """Entity-less computed live-style rules compile as computed outputs."""
         rulespec = """
-snap_self_employment_cost_exclusion:
-  label: "SNAP self-employment cost exclusion"
-  description: "Reduction for production costs"
-  from 2008-10-01:
-    min(
-      snap_nonfarm_self_employment_production_costs,
-      snap_nonfarm_self_employment_gross_income,
-    ) + snap_farm_self_employment_production_costs
+format: rulespec/v1
+rules:
+- name: snap_self_employment_cost_exclusion
+  kind: derived
+  label: SNAP self-employment cost exclusion
+  description: Reduction for production costs
+  versions:
+  - effective_from: '2008-10-01'
+    formula: |-
+      min(
+        snap_nonfarm_self_employment_production_costs,
+        snap_nonfarm_self_employment_gross_income,
+      ) + snap_farm_self_employment_production_costs
 """
         lowered = parse_rulespec(rulespec).to_lowered_program()
 
@@ -187,17 +222,24 @@ snap_self_employment_cost_exclusion:
     def test_lowered_program_round_trips_and_generates_python(self):
         """Compiled modules can emit and reload a lowered JSON bundle."""
         rulespec = """
-rate:
-  source: "Test"
-  from 2024-01-01: 0.2
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    taxable_income = wages - deduction
-    return taxable_income * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      taxable_income = wages - deduction
+      return taxable_income * rate
 """
         lowered = parse_rulespec(rulespec).to_lowered_program(outputs=["tax"])
         payload = json.loads(lowered.to_json())
@@ -214,12 +256,16 @@ tax:
     def test_lowered_program_emits_typed_computations_and_outputs(self):
         """Lowered bundles expose explicit value kinds for computations/outputs."""
         rulespec = """
-flag:
+format: rulespec/v1
+rules:
+- name: flag
+  kind: derived
   entity: Person
   period: Year
   dtype: Bool
-  from 2024-01-01:
-    return wages <= 1000
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages <= 1000
 """
         payload = json.loads(parse_rulespec(rulespec).to_lowered_program().to_json())
 
@@ -234,16 +280,22 @@ flag:
         origin = tmp_path / "benefit_amount.yaml"
         lowered = parse_rulespec(
             """
-rate:
-  source: "Test"
-  from 2024-01-01: 0.2
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """,
             origin=origin,
         ).to_lowered_program()
@@ -256,16 +308,22 @@ tax:
     def test_lowered_program_emits_typed_parameters(self):
         """Lowered bundles expose explicit value kinds for resolved parameters."""
         rulespec = """
-allowance:
-  source: "Test"
-  from 2024-01-01: 2
-
-count:
+format: rulespec/v1
+rules:
+- name: allowance
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '2'
+- name: count
+  kind: derived
   entity: Person
   period: Year
   dtype: Integer
-  from 2024-01-01:
-    return n_children + allowance
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return n_children + allowance
 """
         payload = json.loads(parse_rulespec(rulespec).to_lowered_program().to_json())
 
@@ -276,19 +334,23 @@ count:
     def test_lowered_program_emits_indexed_parameter_contracts(self):
         """Lowered bundles expose explicit lookup contracts for indexed parameters."""
         rulespec = """
-allowances:
-  source: "external/allowances"
-
-count:
+format: rulespec/v1
+rules:
+- name: allowances
+  kind: parameter
+  source: external/allowances
+- name: count
+  kind: derived
   entity: Person
   period: Year
   dtype: Integer
-  from 2024-01-01:
-    return allowances[n_children]
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return allowances[n_children]
 """
         payload = json.loads(
             parse_rulespec(rulespec)
-            .to_lowered_program(parameter_overrides={"allowances": [1, 2]})
+            .to_lowered_program(rule_bindings={"allowances": [1, 2]})
             .to_json()
         )
 
@@ -298,13 +360,18 @@ count:
     def test_lowered_program_emits_typed_local_slots(self):
         """Lowered bundles expose stable local slot kinds inside computations."""
         rulespec = """
-flag:
+format: rulespec/v1
+rules:
+- name: flag
+  kind: derived
   entity: Person
   period: Year
   dtype: Bool
-  from 2024-01-01:
-    eligible = wages <= 1000
-    return eligible
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      eligible = wages <= 1000
+      return eligible
 """
         payload = json.loads(parse_rulespec(rulespec).to_lowered_program().to_json())
 
@@ -312,49 +379,24 @@ flag:
             "eligible": "boolean"
         }
 
-    def test_lowered_program_accepts_older_json_without_value_kinds(self):
-        """Older lowered JSON payloads still load with conservative defaults."""
-        lowered = LoweredProgram.from_json(
-            json.dumps(
-                {
-                    "inputs": [{"name": "n_children", "default": 0}],
-                    "parameters": [],
-                    "computations": [
-                        {
-                            "name": "tax",
-                            "statements": [
-                                {
-                                    "kind": "assign",
-                                    "name": "count",
-                                    "expression": {
-                                        "kind": "binary",
-                                        "left": {"kind": "name", "name": "n_children"},
-                                        "operator": "+",
-                                        "right": {"kind": "literal", "value": 1},
-                                    },
-                                },
-                                {
-                                    "kind": "return",
-                                    "expression": {
-                                        "kind": "name",
-                                        "name": "count",
-                                    },
-                                },
-                            ],
-                            "local_names": ["count"],
-                        }
-                    ],
-                    "outputs": [{"name": "tax", "variable_name": "tax"}],
-                }
+    def test_lowered_program_requires_input_value_kinds(self):
+        """Lowered JSON inputs must carry explicit value kinds."""
+        with pytest.raises(
+            CompilationError, match="missing required field 'value_kind'"
+        ):
+            LoweredProgram.from_json(
+                json.dumps(
+                    {
+                        "inputs": [{"name": "n_children", "default": 0}],
+                        "parameters": [],
+                        "computations": [],
+                        "outputs": [],
+                    }
+                )
             )
-        )
 
-        assert lowered.computations[0].value_kind == "number"
-        assert lowered.computations[0].local_value_kinds == {"count": "integer"}
-        assert lowered.outputs[0].value_kind == "number"
-
-    def test_lowered_program_infers_output_module_identity_from_computations(self):
-        """Older lowered JSON can reuse computation identity for public outputs."""
+    def test_lowered_program_loads_explicit_output_module_identity(self):
+        """Lowered JSON preserves explicit output module identity."""
         lowered = LoweredProgram.from_json(
             json.dumps(
                 {
@@ -377,6 +419,7 @@ flag:
                             "name": "benefit_amount",
                             "variable_name": "benefit_amount_tax",
                             "value_kind": "number",
+                            "module_identity": "benefit_amount",
                         }
                     ],
                 }
@@ -385,27 +428,24 @@ flag:
 
         assert lowered.outputs[0].module_identity == "benefit_amount"
 
-    def test_lowered_program_accepts_older_json_inputs_without_value_kinds(self):
-        """Older lowered JSON inputs default through the legacy input heuristics."""
-        lowered = LoweredProgram.from_json(
-            json.dumps(
-                {
-                    "inputs": [
-                        {"name": "is_joint", "default": False},
-                        {"name": "n_children", "default": 0},
-                    ],
-                    "parameters": [],
-                    "computations": [],
-                    "outputs": [],
-                }
+    def test_lowered_program_rejects_input_without_value_kind(self):
+        """Lowered JSON rejects inputs without explicit value_kind."""
+        with pytest.raises(
+            CompilationError, match="missing required field 'value_kind'"
+        ):
+            LoweredProgram.from_json(
+                json.dumps(
+                    {
+                        "inputs": [{"name": "is_joint", "default": False}],
+                        "parameters": [],
+                        "computations": [],
+                        "outputs": [],
+                    }
+                )
             )
-        )
 
-        assert lowered.inputs[0].value_kind == "boolean"
-        assert lowered.inputs[1].value_kind == "integer"
-
-    def test_lowered_program_infers_legacy_parameter_kinds_from_values(self):
-        """Legacy lowered JSON reuses loaded parameter kinds for local inference."""
+    def test_lowered_program_uses_explicit_parameter_kinds(self):
+        """Lowered JSON reuses explicit parameter kinds for local inference."""
         lowered = LoweredProgram.from_json(
             json.dumps(
                 {
@@ -416,7 +456,15 @@ flag:
                             "value_kind": "integer",
                         }
                     ],
-                    "parameters": [{"name": "allowances", "values": {"0": 1, "1": 2}}],
+                    "parameters": [
+                        {
+                            "name": "allowances",
+                            "values": {"0": 1, "1": 2},
+                            "value_kind": "integer",
+                            "lookup_kind": "indexed",
+                            "index_value_kind": "integer",
+                        }
+                    ],
                     "computations": [
                         {
                             "name": "count",
@@ -523,8 +571,8 @@ flag:
                 )
             )
 
-    def test_lowered_program_infers_legacy_local_kinds_from_loaded_inputs(self):
-        """Legacy lowered JSON reuses loaded input kinds when local kinds are absent."""
+    def test_lowered_program_infers_local_kinds_from_loaded_inputs(self):
+        """Lowered JSON reuses loaded input kinds when local kinds are absent."""
         lowered = LoweredProgram.from_json(
             json.dumps(
                 {
@@ -614,15 +662,20 @@ flag:
     def test_incompatible_branch_local_kinds_fail_loudly(self):
         """Locals assigned incompatible kinds across branches are unsupported."""
         rulespec = """
-result:
+format: rulespec/v1
+rules:
+- name: result
+  kind: derived
   entity: Person
   period: Year
-  from 2024-01-01:
-    if is_toggle:
-      tmp = is_joint
-    else:
-      tmp = 1
-    return tmp
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      if is_toggle:
+        tmp = is_joint
+      else:
+        tmp = 1
+      return tmp
 """
         with pytest.raises(
             CompilationError,
@@ -685,15 +738,19 @@ result:
     def test_source_only_parameter_requires_binding(self):
         """Source-only referenced parameters fail without explicit bindings."""
         rulespec = """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         with pytest.raises(CompilationError, match="Supply a rule binding"):
             parse_rulespec(rulespec).to_compile_model()
@@ -701,15 +758,19 @@ tax:
     def test_unused_source_only_parameter_does_not_fail_compile(self):
         """Unused source-only parameters stay lazy until something references them."""
         rulespec = """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
 """
         module = parse_rulespec(rulespec).to_compile_model()
 
@@ -719,20 +780,24 @@ tax:
     def test_source_only_parameter_uses_explicit_binding(self):
         """Source-only referenced parameters compile with bound values."""
         rulespec = """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         namespace = {}
         code = (
             parse_rulespec(rulespec)
-            .to_python_generator(parameter_overrides={"rate": 0.25})
+            .to_python_generator(rule_bindings={"rate": 0.25})
             .generate()
         )
 
@@ -744,20 +809,24 @@ tax:
         """Single-file source-only params can bind through module_identity.symbol."""
         origin = tmp_path / "benefit_amount.yaml"
         rulespec = """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         namespace = {}
         code = (
             parse_rulespec(rulespec, origin=origin)
-            .to_python_generator(parameter_overrides={"benefit_amount.rate": 0.25})
+            .to_python_generator(rule_bindings={"benefit_amount.rate": 0.25})
             .generate()
         )
 
@@ -768,15 +837,19 @@ tax:
     def test_source_only_parameter_accepts_effective_dated_rule_bindings(self):
         """Structured rule bindings resolve by compile effective date."""
         rulespec = """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         namespace = {}
         code = (
@@ -810,15 +883,19 @@ tax:
     ):
         """Date-specific rule bindings require an explicit compile date."""
         rulespec = """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         with pytest.raises(
             RuleBindingError,
@@ -839,65 +916,74 @@ tax:
     def test_scalar_parameter_reference_rejects_indexed_values(self):
         """Bare parameter references fail when the resolved parameter is indexed."""
         rulespec = """
-allowances:
-  source: "external/allowances"
-
-count:
+format: rulespec/v1
+rules:
+- name: allowances
+  kind: parameter
+  source: external/allowances
+- name: count
+  kind: derived
   entity: Person
   period: Year
   dtype: Integer
-  from 2024-01-01:
-    return allowances
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return allowances
 """
         with pytest.raises(
             CompilationError,
             match="used as a scalar value but resolves to indexed entries",
         ):
             parse_rulespec(rulespec).to_compile_model(
-                parameter_overrides={"allowances": [1, 2]}
+                rule_bindings={"allowances": [1, 2]}
             )
 
     def test_parameter_cannot_be_used_as_scalar_and_indexed(self):
         """Parameters must not mix scalar and indexed access patterns."""
         rulespec = """
-rates:
-  source: "external/rates"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rates
+  kind: parameter
+  source: external/rates
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    chosen = rates[n_children]
-    return chosen + rates
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      chosen = rates[n_children]
+      return chosen + rates
 """
         with pytest.raises(
             CompilationError,
             match="used both as a scalar value and an indexed lookup",
         ):
-            parse_rulespec(rulespec).to_compile_model(
-                parameter_overrides={"rates": [1, 2]}
-            )
+            parse_rulespec(rulespec).to_compile_model(rule_bindings={"rates": [1, 2]})
 
     def test_structured_parameter_binding_carries_bundle_source(self):
         """Structured bindings surface bundle source metadata in generated output."""
         rulespec = """
-rate:
-  source: "external/rate"
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: external/rate
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         code = (
             parse_rulespec(rulespec)
             .to_python_generator(
-                parameter_overrides={
-                    "rate": {"value": 0.25, "source": "bundle://ty2025"}
-                }
+                rule_bindings={"rate": {"value": 0.25, "source": "bundle://ty2025"}}
             )
             .generate()
         )
@@ -907,18 +993,25 @@ tax:
     def test_python_compile_executes_multiline_formulas(self):
         """Parsed RuleSpec formulas compile to executable Python."""
         rulespec = """
-rate:
-  source: "Test"
-  from 2024-01-01: 0.2
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    taxable_income = max(0, wages - 1000)
-    applied_rate = is_joint ? rate / 2 : rate
-    return round(taxable_income * applied_rate)
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      taxable_income = max(0, wages - 1000)
+      applied_rate = is_joint ? rate / 2 : rate
+      return round(taxable_income * applied_rate)
 """
         generator = parse_rulespec(rulespec).to_python_generator()
         code = generator.generate()
@@ -932,30 +1025,37 @@ tax:
     def test_expression_ir_handles_boolean_ternary_and_indexed_parameters(self):
         """Generic compile supports the validated scalar expression subset."""
         rulespec = """
-rates:
-  source: "external/rates"
-
-threshold:
-  source: "Test"
-  from 2024-01-01: 100
-
-tax:
+format: rulespec/v1
+rules:
+- name: rates
+  kind: parameter
+  source: external/rates
+- name: threshold
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '100'
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    rate_index = has_bonus ? 1 : 0
-    return !(wages <= threshold) && is_eligible ? round(wages * rates[rate_index]) : 0
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      rate_index = has_bonus ? 1 : 0
+      return !(wages <= threshold) && is_eligible ? round(wages * rates[rate_index]) : 0
 """
         js_code = (
             parse_rulespec(rulespec)
-            .to_js_generator(parameter_overrides={"rates": [0.1, 0.2]})
+            .to_js_generator(rule_bindings={"rates": [0.1, 0.2]})
             .generate()
         )
         namespace = {}
         py_code = (
             parse_rulespec(rulespec)
-            .to_python_generator(parameter_overrides={"rates": [0.1, 0.2]})
+            .to_python_generator(rule_bindings={"rates": [0.1, 0.2]})
             .generate()
         )
 
@@ -982,16 +1082,22 @@ tax:
     def test_simple_comparison_expression_compiles_to_python(self):
         """Direct comparison expressions stay scalar expressions in Python output."""
         rulespec = """
-threshold:
-  source: "Test"
-  from 2024-01-01: 1000
-
-flag:
+format: rulespec/v1
+rules:
+- name: threshold
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '1000'
+- name: flag
+  kind: derived
   entity: Person
   period: Year
   dtype: Bool
-  from 2024-01-01:
-    return wages <= threshold
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages <= threshold
 """
         namespace = {}
         py_code = parse_rulespec(rulespec).to_python_generator().generate()
@@ -1004,13 +1110,18 @@ flag:
     def test_terminal_bare_expression_compiles_as_return(self):
         """A final bare expression compiles as an implicit return."""
         rulespec = """
-result:
+format: rulespec/v1
+rules:
+- name: result
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    tmp = wages + 1
-    tmp
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      tmp = wages + 1
+      tmp
 """
         namespace = {}
         py_code = parse_rulespec(rulespec).to_python_generator().generate()
@@ -1022,16 +1133,21 @@ result:
     def test_supports_if_else_blocks_with_branch_local_assignments(self):
         """Generic compile supports limited if/else blocks with shared locals."""
         rulespec = """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    if is_joint:
-      rate = 0.1
-    else:
-      rate = 0.2
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      if is_joint:
+        rate = 0.1
+      else:
+        rate = 0.2
+      return wages * rate
 """
         module = parse_rulespec(rulespec).to_compile_model()
         js_code = module.to_js_generator().generate()
@@ -1047,34 +1163,44 @@ tax:
     def test_select_outputs_prunes_to_reachable_subgraph(self):
         """Selected outputs keep only reachable variables, params, and inputs."""
         rulespec = """
-rate:
-  source: "Test"
-  from 2024-01-01: 0.1
-
-bonus_rate:
-  source: "Test"
-  from 2024-01-01: 0.5
-
-taxable_income:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+- name: bonus_rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.5'
+- name: taxable_income
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages - deduction
-
-tax:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages - deduction
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return taxable_income * rate
-
-bonus:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return taxable_income * rate
+- name: bonus
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * bonus_rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * bonus_rate
 """
         module = parse_rulespec(rulespec).to_compile_model(outputs=["tax"])
 
@@ -1092,20 +1218,26 @@ bonus:
     def test_select_outputs_ignores_unreachable_unsupported_variables(self):
         """Selected-output compile only validates the reachable variable subgraph."""
         rulespec = """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
-
-bonus:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
+- name: bonus
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    while wages > 0:
-      return wages
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      while wages > 0:
+        return wages
 """
         namespace = {}
         py_code = (
@@ -1119,23 +1251,30 @@ bonus:
     def test_selected_outputs_only_return_requested_values(self):
         """Selected outputs stay internal unless explicitly requested."""
         rulespec = """
-rate:
-  source: "Test"
-  from 2024-01-01: 0.1
-
-taxable_income:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+- name: taxable_income
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages - deduction
-
-tax:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages - deduction
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return taxable_income * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return taxable_income * rate
 """
         namespace = {}
         code = parse_rulespec(rulespec).to_python_generator(outputs=["tax"]).generate()
@@ -1149,14 +1288,19 @@ tax:
     def test_export_aliases_define_public_outputs_for_single_file_compile(self):
         """Single-file compile exposes exported output aliases in the result shape."""
         rulespec = """
-export tax as benefit_amount
-
-tax:
+format: rulespec/v1
+exports:
+- name: tax
+  alias: benefit_amount
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
 """
         namespace = {}
         py_code = parse_rulespec(rulespec).to_python_generator().generate()
@@ -1170,14 +1314,19 @@ tax:
     def test_export_aliases_restrict_selected_outputs_to_public_names(self):
         """Explicit exports make selected-output compile use the public interface."""
         rulespec = """
-export tax as benefit_amount
-
-tax:
+format: rulespec/v1
+exports:
+- name: tax
+  alias: benefit_amount
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
 """
         with pytest.raises(
             CompilationError,
@@ -1188,14 +1337,19 @@ tax:
     def test_invalid_export_name_fails_even_when_other_exports_are_valid(self):
         """Mixed valid/invalid exports still fail loudly instead of dropping one."""
         rulespec = """
-export tax, missing_output
-
-tax:
+format: rulespec/v1
+exports:
+- tax
+- missing_output
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
 """
         with pytest.raises(
             CompilationError,
@@ -1206,12 +1360,16 @@ tax:
     def test_unknown_selected_output_fails_loudly(self):
         """Selecting a missing output variable raises a user-facing error."""
         rulespec = """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
 """
         with pytest.raises(CompilationError, match="Unknown output variable"):
             parse_rulespec(rulespec).to_compile_model(outputs=["bonus"])
@@ -1219,23 +1377,30 @@ tax:
     def test_reorders_variables_by_dependency(self):
         """Variables can depend on earlier-or-later parsed variables."""
         rulespec = """
-rate:
-  source: "Test"
-  from 2024-01-01: 0.1
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.1'
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return taxable_income * rate
-
-taxable_income:
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return taxable_income * rate
+- name: taxable_income
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages - deduction
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages - deduction
 """
         code = parse_rulespec(rulespec).to_python_generator().generate()
         namespace = {}
@@ -1249,17 +1414,24 @@ taxable_income:
     def test_rejects_multiple_temporal_parameter_values(self):
         """Generic compile fails loudly on unsupported temporal parameters."""
         rulespec = """
-rate:
-  source: "Test"
-  from 2024-01-01: 0.2
-  from 2025-01-01: 0.25
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
+  - effective_from: '2025-01-01'
+    formula: '0.25'
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         with pytest.raises(CompilationError, match="Pass an effective date"):
             parse_rulespec(rulespec).to_compile_model()
@@ -1267,17 +1439,24 @@ tax:
     def test_resolves_temporal_parameter_by_effective_date(self):
         """Temporal parameters resolve to the active entry for a compile date."""
         rulespec = """
-rate:
-  source: "Test"
-  from 2024-01-01: 0.2
-  from 2025-01-01: 0.25
-
-tax:
+format: rulespec/v1
+rules:
+- name: rate
+  kind: parameter
+  source: Test
+  versions:
+  - effective_from: '2024-01-01'
+    formula: '0.2'
+  - effective_from: '2025-01-01'
+    formula: '0.25'
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * rate
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * rate
 """
         namespace = {}
         code = (
@@ -1293,14 +1472,18 @@ tax:
     def test_resolves_temporal_variable_formula_by_effective_date(self):
         """Temporal variable formulas resolve against the compile date."""
         rulespec = """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
-  from 2025-01-01:
-    return wages * 0.2
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
+  - effective_from: '2025-01-01'
+    formula: return wages * 0.2
 """
         namespace = {}
         code = (
@@ -1316,14 +1499,18 @@ tax:
     def test_errors_when_effective_date_precedes_temporal_entries(self):
         """Temporal compile fails when no entry is active yet."""
         rulespec = """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
-  from 2025-01-01:
-    return wages * 0.2
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return wages * 0.1
+  - effective_from: '2025-01-01'
+    formula: return wages * 0.2
 """
         with pytest.raises(CompilationError, match="has no temporal entry active"):
             parse_rulespec(rulespec).to_compile_model(effective_date="2023-01-01")
@@ -1331,12 +1518,16 @@ tax:
     def test_rejects_unsupported_function_calls(self):
         """Generic compile fails loudly on unknown helper calls."""
         rulespec = """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return custom_credit(wages)
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return custom_credit(wages)
 """
         with pytest.raises(
             CompilationError,
@@ -1347,12 +1538,16 @@ tax:
     def test_rejects_attribute_access(self):
         """Generic compile fails loudly on attribute access."""
         rulespec = """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return household.size
+  versions:
+  - effective_from: '2024-01-01'
+    formula: return household.size
 """
         with pytest.raises(
             CompilationError,
@@ -1363,13 +1558,18 @@ tax:
     def test_rejects_missing_return_path(self):
         """Generic compile rejects formulas that do not return on all paths."""
         rulespec = """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    if wages > 0:
-      return wages
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      if wages > 0:
+        return wages
 """
         with pytest.raises(
             CompilationError,
@@ -1380,13 +1580,18 @@ tax:
     def test_rejects_unsupported_loop_statements(self):
         """Generic compile still fails loudly on unsupported loop control flow."""
         rulespec = """
-tax:
+format: rulespec/v1
+rules:
+- name: tax
+  kind: derived
   entity: Person
   period: Year
   dtype: Money
-  from 2024-01-01:
-    while wages > 0:
-      return wages
+  versions:
+  - effective_from: '2024-01-01'
+    formula: |-
+      while wages > 0:
+        return wages
 """
         with pytest.raises(
             CompilationError,

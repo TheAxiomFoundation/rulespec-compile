@@ -1,10 +1,10 @@
-# Example Working Families Act § 101(a)
-
+format: rulespec/v1
 source:
-  citation: "Example Working Families Act § 101(a)"
-  accessed: 2025-01-01
-
-export rate
-
-rate:
-  source: "example/working_families/phase_in_rate"
+  citation: "Example Working Families Act \xA7 101(a)"
+  accessed: '2025-01-01'
+exports:
+- rate
+rules:
+- name: rate
+  kind: parameter
+  source: example/working_families/phase_in_rate
