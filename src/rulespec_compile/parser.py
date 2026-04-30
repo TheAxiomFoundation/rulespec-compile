@@ -7,6 +7,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Optional
 
+import yaml
+
 from .rule_bindings import (
     RuleBinding,
     RuleBindingBundle,
@@ -491,7 +493,11 @@ _DATE_SCALAR_PATTERN = re.compile(
 
 def parse_rulespec(content: str, origin: Path | str | None = None) -> RuleSpecFile:
     """Parse .yaml file content into a RuleSpecFile."""
-    result = RuleSpecFile(origin=Path(origin).resolve() if origin is not None else None)
+    resolved_origin = Path(origin).resolve() if origin is not None else None
+    if _looks_like_rulespec_v1(content):
+        return _parse_rulespec_v1(content, resolved_origin)
+
+    result = RuleSpecFile(origin=resolved_origin)
 
     lines = content.split("\n")
     i = 0
@@ -640,12 +646,201 @@ def _derive_module_identity(origin: Path | None) -> str:
         return ""
     resolved = origin.resolve()
     parts = resolved.parts
-    for root_name in ("statute", "regulation", "legislation"):
+    for root_name in (
+        "statutes",
+        "regulations",
+        "policies",
+        "statute",
+        "regulation",
+        "legislation",
+    ):
         if root_name not in parts:
             continue
         root_index = parts.index(root_name)
         return str(Path(*parts[root_index:]).with_suffix(""))
     return resolved.stem
+
+
+def _looks_like_rulespec_v1(content: str) -> bool:
+    """Return whether content uses the current structured RuleSpec v1 envelope."""
+    try:
+        payload = yaml.safe_load(content)
+    except yaml.YAMLError:
+        return False
+    return isinstance(payload, dict) and payload.get("format") == "rulespec/v1"
+
+
+def _parse_rulespec_v1(content: str, origin: Path | None) -> RuleSpecFile:
+    """Parse the current `format: rulespec/v1` YAML envelope."""
+    try:
+        payload = yaml.safe_load(content)
+    except yaml.YAMLError as exc:
+        raise ParserError(f"Could not parse RuleSpec v1 YAML: {exc}.") from exc
+    if not isinstance(payload, dict):
+        raise ParserError("RuleSpec v1 payload must be a mapping.")
+
+    result = RuleSpecFile(origin=origin)
+    module_identity = result.resolved_module_identity
+    result.module_identity = module_identity
+
+    module = payload.get("module")
+    if isinstance(module, dict):
+        summary = module.get("summary")
+        if isinstance(summary, str) and summary.strip():
+            result.statute_text = summary.strip()
+
+    source = payload.get("source")
+    if isinstance(source, dict):
+        result.source = SourceBlock(
+            lawarchive=_optional_string(source.get("lawarchive")),
+            citation=_optional_string(source.get("citation")),
+            accessed=_optional_string(source.get("accessed")),
+        )
+
+    imports = payload.get("imports")
+    if isinstance(imports, list):
+        for item in imports:
+            if not isinstance(item, str):
+                raise ParserError("RuleSpec v1 imports must be strings.")
+            result.imports.append(item)
+            result.import_specs.append(ImportSpec(path=item))
+
+    rules = payload.get("rules")
+    if not isinstance(rules, list) or not rules:
+        raise ParserError("RuleSpec v1 payload must define a non-empty rules list.")
+
+    parsed_definitions: list[ParameterDef | VariableBlock] = []
+    for index, raw_rule in enumerate(rules):
+        if not isinstance(raw_rule, dict):
+            raise ParserError(f"RuleSpec v1 rules[{index}] must be a mapping.")
+        definition = _parse_rulespec_v1_rule(raw_rule, module_identity, index)
+        if isinstance(definition, ParameterDef):
+            result.parameters[definition.name] = definition
+        else:
+            result.variables.append(definition)
+        parsed_definitions.append(definition)
+
+    result.rules = _definitions_to_rule_decls(parsed_definitions)
+    return result
+
+
+def _parse_rulespec_v1_rule(
+    raw_rule: dict[str, Any],
+    module_identity: str,
+    index: int,
+) -> ParameterDef | VariableBlock:
+    """Parse one rule object from the current RuleSpec v1 envelope."""
+    name = _required_identifier(raw_rule.get("name"), f"rules[{index}].name")
+    kind = _required_string(raw_rule.get("kind"), f"rules[{index}].kind")
+    source = _optional_string(raw_rule.get("source")) or ""
+    source_url = _optional_string(raw_rule.get("source_url"))
+    temporal = _parse_rulespec_v1_versions(raw_rule, name, kind)
+
+    if kind == "parameter":
+        return ParameterDef(
+            name=name,
+            symbol_name=name,
+            source=source,
+            temporal=temporal,
+            description=_optional_string(raw_rule.get("description")),
+            unit=_optional_string(raw_rule.get("unit")),
+            reference=source_url,
+            module_identity=module_identity,
+        )
+
+    if kind not in {"derived", "relation"}:
+        raise ParserError(
+            f"RuleSpec v1 rule '{name}' has unsupported kind {kind!r}. "
+            "Supported kinds are parameter, derived, and relation."
+        )
+
+    return VariableBlock(
+        name=name,
+        symbol_name=name,
+        entity=_optional_string(raw_rule.get("entity")),
+        period=_optional_string(raw_rule.get("period")),
+        dtype=_optional_string(raw_rule.get("dtype")),
+        label=_optional_string(raw_rule.get("label")),
+        description=_optional_string(raw_rule.get("description")),
+        unit=_optional_string(raw_rule.get("unit")),
+        reference=source_url,
+        source=source or (source_url or ""),
+        temporal=temporal,
+        source_citation=source,
+        module_identity=module_identity,
+    )
+
+
+def _parse_rulespec_v1_versions(
+    raw_rule: dict[str, Any],
+    rule_name: str,
+    kind: str,
+) -> list[TemporalEntry]:
+    """Parse `versions` entries from a RuleSpec v1 rule object."""
+    versions = raw_rule.get("versions")
+    if not isinstance(versions, list) or not versions:
+        raise ParserError(f"RuleSpec v1 rule '{rule_name}' must define versions.")
+
+    temporal: list[TemporalEntry] = []
+    for version_index, version in enumerate(versions):
+        if not isinstance(version, dict):
+            raise ParserError(
+                f"RuleSpec v1 rule '{rule_name}' versions[{version_index}] "
+                "must be a mapping."
+            )
+        effective_from = _required_string(
+            version.get("effective_from"),
+            f"rules[{rule_name}].versions[{version_index}].effective_from",
+        )
+        formula = version.get("formula")
+        if kind == "parameter":
+            numeric_value = _numeric_formula_value(formula)
+            if numeric_value is not None:
+                temporal.append(
+                    TemporalEntry(from_date=effective_from, value=numeric_value)
+                )
+                continue
+        if formula is None:
+            raise ParserError(
+                f"RuleSpec v1 rule '{rule_name}' versions[{version_index}] "
+                "must define formula."
+            )
+        temporal.append(TemporalEntry(from_date=effective_from, code=str(formula)))
+    return temporal
+
+
+def _numeric_formula_value(value: Any) -> float | None:
+    """Return a numeric value for scalar RuleSpec v1 formulas when possible."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str) and re.fullmatch(r"-?\d+(?:\.\d+)?", value.strip()):
+        return float(value.strip())
+    return None
+
+
+def _optional_string(value: Any) -> str | None:
+    """Return a stripped string or None for absent values."""
+    if value is None:
+        return None
+    return str(value).strip()
+
+
+def _required_string(value: Any, field: str) -> str:
+    """Require a non-empty string-like value."""
+    normalized = _optional_string(value)
+    if not normalized:
+        raise ParserError(f"RuleSpec v1 field {field} is required.")
+    return normalized
+
+
+def _required_identifier(value: Any, field: str) -> str:
+    """Require a safe RuleSpec rule identifier."""
+    normalized = _required_string(value, field)
+    if re.fullmatch(r"[A-Za-z_]\w*", normalized) is None:
+        raise ParserError(f"RuleSpec v1 field {field} must be an identifier.")
+    return normalized
 
 
 def _resolve_rule_binding_name(

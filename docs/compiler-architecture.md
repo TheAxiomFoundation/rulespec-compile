@@ -42,8 +42,8 @@ flowchart LR
 ### 1. Rule source
 
 The source of truth is checked-in `.yaml` files. For canonical RuleSpec trees,
-`module_identity` comes from the `statute/...`, `regulation/...`, or
-`legislation/...` path. For ad hoc files outside those roots, it falls back to
+`module_identity` comes from the `statutes/...`, `regulations/...`, or
+`policies/...` path. For ad hoc files outside those roots, it falls back to
 the file leaf name. That identity shows up in imports, binding keys, lowered
 bundles, and generated citation metadata.
 
@@ -172,7 +172,7 @@ resolver contract and migration path.
 
 Question:
 What exactly counts as the canonical RuleSpec identity path outside the current
-`statute/`, `regulation/`, and `legislation/` roots?
+`statutes/`, `regulations/`, and `policies/` roots?
 
 Why it matters:
 `module_identity` now flows into imports, bindings, lowered metadata, and

@@ -1,132 +1,112 @@
-# Authoring `.yaml`
+# Authoring RuleSpec `.yaml`
 
 This guide is for writing RuleSpec source files that compile cleanly through the
 current `rulespec-compile` pipeline.
 
-## File shape
+## File Shape
 
-A `.yaml` file is made of:
+A current RuleSpec file uses the structured `rulespec/v1` envelope:
 
-- an optional top-level `source:` metadata block
-- top-level rule definitions
-- optional imports / exports
+- `format: rulespec/v1`
+- optional `module.summary` text for the source provision
+- optional top-level `source:` metadata
+- optional `imports:` list of local `.yaml` modules
+- `rules:` list containing versioned parameter and derived rules
 
-For canonical RuleSpec trees, use citation paths like `statute/26/32/c/2/A.yaml` or
-`regulation/...`. Avoid generic entrypoint names like `main.yaml`.
+For canonical RuleSpec trees, use citation paths like
+`statutes/26/32/c/2/A.yaml`, `regulations/...`, or `policies/...`. Avoid
+generic entrypoint names like `main.yaml`.
 
-The compiler uses canonical `statute/...`, `regulation/...`, or
-`legislation/...` paths as module/rule identity in merged graphs, lowered
-bundles, and generated citation metadata. For ad hoc files outside those roots,
-it falls back to the file leaf name.
+The compiler uses canonical `statutes/...`, `regulations/...`, or
+`policies/...` paths as module/rule identity in merged graphs, lowered bundles,
+and generated citation metadata. For ad hoc files outside those roots, it falls
+back to the file leaf name.
 
-For real policy work, author RuleSpec as checked-in `.yaml` files with rule citations
-and source metadata in the file itself. Do not treat RuleSpec as an ad hoc embedded
-string format.
+For real policy work, author RuleSpec as checked-in `.yaml` files with rule
+citations and source metadata in the file itself. Do not treat RuleSpec as an ad
+hoc embedded string format.
 
-Shipped file example:
+Current file example:
 
-```rulespec
-# /Users/maxghenis/TheAxiomFoundation/rulespec-compile/examples/simple_tax.yaml
-
+```yaml
+format: rulespec/v1
+module:
+  summary: |-
+    Example Tax Code imposes a 20 percent tax on taxable income.
 source:
-  citation: "Example Tax Code"
-  accessed: 2025-01-01
-
-rate:
-  source: "example/tax/rate"
-
-tax:
-  entity: Person
-  period: Year
-  dtype: Money
-  label: "Income Tax"
-  from 2025-01-01:
-    return income * 0.2
+  citation: Example Tax Code
+  accessed: '2026-01-01'
+rules:
+  - name: income_tax_rate
+    kind: parameter
+    dtype: Rate
+    source: Example Tax Code
+    source_url: https://example.test/tax
+    versions:
+      - effective_from: '2026-01-01'
+        formula: '0.2'
+  - name: income_tax
+    kind: derived
+    entity: TaxUnit
+    period: Year
+    dtype: Money
+    unit: USD
+    source: Example Tax Code
+    source_url: https://example.test/tax
+    versions:
+      - effective_from: '2026-01-01'
+        formula: taxable_income * income_tax_rate
 ```
 
-The more representative policy examples are:
+Current jurisdiction examples live in:
 
-- `/Users/maxghenis/TheAxiomFoundation/rulespec-compile/examples/eitc.yaml`
-- `/Users/maxghenis/TheAxiomFoundation/rulespec-compile/examples/ctc.yaml`
-- `/Users/maxghenis/TheAxiomFoundation/rulespec-compile/examples/snap.yaml`
-- `/Users/maxghenis/TheAxiomFoundation/rulespec-compile/examples/working_families/benefit_amount.yaml`
+- `/Users/maxghenis/TheAxiomFoundation/rules-us/statutes/26/3101/a.yaml`
+- `/Users/maxghenis/TheAxiomFoundation/rules-us/statutes/26/45A/a.yaml`
+- `/Users/maxghenis/TheAxiomFoundation/rules-us/statutes/26/63/c.yaml`
+- `/Users/maxghenis/TheAxiomFoundation/rules-us/statutes/26/63/c/5.yaml`
 
-## External Scalar And Table Rules
+## Parameter Rules
 
-RuleSpec source files use one top-level rule shape. Some of those rules behave as
-external scalar values or lookup tables rather than computed formulas.
+Parameter rules hold versioned numeric values used by derived formulas.
 
-Inline scalar external rule:
-
-```rulespec
-rate:
-  source: "26 USC 1"
-  values:
-    0: 0.2
+```yaml
+- name: oasdi_wage_tax_rate
+  kind: parameter
+  dtype: Rate
+  source: 26 USC 3101(a)
+  source_url: https://www.law.cornell.edu/uscode/text/26/3101
+  versions:
+    - effective_from: '1990-01-01'
+      formula: '0.062'
 ```
 
-Indexed external rule table:
+## Derived Rules
 
-```rulespec
-credit_pct:
-  source: "26 USC 32(b)(1)"
-  values:
-    0: 7.65
-    1: 34
-    2: 40
-    3: 45
-```
+Derived rules are the compiled formulas. Entity-scoped rules usually include:
 
-Source-only external rule:
-
-```rulespec
-rate:
-  source: "external/rate"
-```
-
-Source-only external rules must be bound explicitly at compile time with
-`--binding` or `--binding-file`. For imported source-only rules, use
-`module_identity.symbol`.
-
-## Computed Rules
-
-Computed rules are the compiled formulas. Entity-scoped rules usually include:
-
+- `kind: derived`
 - `entity`
 - `period`
 - `dtype`
-- one or more `from YYYY-MM-DD:` formula bodies
+- one or more `versions:` entries with formulas
 
-Scalar computed rules can omit `entity` when they behave like derived helper
+Scalar derived rules can omit `entity` when they behave like helper
 values or statute-level scalar concepts.
 
 Real policy-style example:
 
-```rulespec
-# excerpted from /Users/maxghenis/TheAxiomFoundation/rulespec-compile/examples/eitc.yaml
-
-eitc:
+```yaml
+- name: oasdi_wage_tax
+  kind: derived
   entity: TaxUnit
-  period: Year
   dtype: Money
-  label: "Earned Income Tax Credit"
-  from 2025-01-01:
-    n = min(n_children, 3)
-    credit_pct_rate = credit_pct[n] / 100
-    return round(max(0, earned_income * credit_pct_rate))
-```
-
-Scalar computed example:
-
-```rulespec
-snap_self_employment_cost_exclusion:
-  label: "SNAP self-employment cost exclusion"
-  description: "Reduction for production costs"
-  from 2008-10-01:
-    min(
-      snap_nonfarm_self_employment_production_costs,
-      snap_nonfarm_self_employment_gross_income,
-    ) + snap_farm_self_employment_production_costs
+  period: Year
+  unit: USD
+  source: 26 USC 3101(a)
+  source_url: https://www.law.cornell.edu/uscode/text/26/3101
+  versions:
+    - effective_from: '1990-01-01'
+      formula: wages * oasdi_wage_tax_rate
 ```
 
 ## Supported formula subset
@@ -144,17 +124,22 @@ The current compiler supports:
 
 Example with statement-block branching:
 
-```rulespec
-tax:
-  entity: Person
+```yaml
+- name: income_tax
+  kind: derived
+  entity: TaxUnit
   period: Year
   dtype: Money
-  from 2025-01-01:
-    if is_joint:
-      rate = 0.1
-    else:
-      rate = 0.2
-    return wages * rate
+  source: Example Tax Code
+  source_url: https://example.test/tax
+  versions:
+    - effective_from: '2026-01-01'
+      formula: |-
+        if is_joint:
+          rate = 0.1
+        else:
+          rate = 0.2
+        return taxable_income * rate
 ```
 
 The compiler fails loudly on unsupported constructs instead of guessing.
@@ -164,54 +149,23 @@ The compiler fails loudly on unsupported constructs instead of guessing.
 The source connection is part of the model, not optional decoration.
 
 - top-level `source:` describes the file-level authority or archive context
-- external-rule `source:` fields tie values back to statutes, regulations, or guidance
-- variable labels and citations define the public rule surface
+- rule-level `source:` fields tie formulas and values back to statutes,
+  regulations, or guidance
+- rule-level `source_url:` fields preserve the public URL used by reviewers
 
 If you are authoring real policy, prefer real `.yaml` modules on disk over inline
 snippets in host-language strings.
 
-## Imports and exports
+## Imports
 
-Local import:
+Current `rulespec/v1` imports are local file paths:
 
-```rulespec
-import "./shared.yaml"
+```yaml
+imports:
+  - ./shared.yaml
 ```
 
-Aliased import:
-
-```rulespec
-import "./shared.yaml" as shared
-```
-
-Selective import:
-
-```rulespec
-from "./shared.yaml" import rate_public as rate, taxable_income
-```
-
-Export public names:
-
-```rulespec
-export tax, taxable_income
-export taxable_income as base_income
-```
-
-Re-export from another module:
-
-```rulespec
-export from "./shared.yaml" import tax, rate as public_rate
-```
-
-## Bare imports
-
-You can also import through configured module roots or package aliases:
-
-```rulespec
-from "tax/shared.yaml" import rate
-```
-
-Those are resolved through:
+Imports can also resolve through configured module roots or package aliases:
 
 - `rulespec.toml` `[module_resolution].roots`
 - `rulespec.toml` `[module_resolution.packages]`
@@ -220,28 +174,32 @@ Those are resolved through:
 
 ## Temporal definitions
 
-Both external rules and computed rules can have multiple dated entries:
+Both parameter and derived rules can have multiple dated entries:
 
-```rulespec
-tax:
-  entity: Person
+```yaml
+- name: income_tax
+  kind: derived
+  entity: TaxUnit
   period: Year
   dtype: Money
-  from 2024-01-01:
-    return wages * 0.1
-  from 2025-01-01:
-    return wages * 0.2
+  source: Example Tax Code
+  source_url: https://example.test/tax
+  versions:
+    - effective_from: '2025-01-01'
+      formula: taxable_income * 0.1
+    - effective_from: '2026-01-01'
+      formula: taxable_income * 0.2
 ```
 
 Compile these with `--effective-date YYYY-MM-DD`.
 
 ## Good current patterns
 
-- Use explicit `values:` blocks for inline numeric external values.
+- Keep rule names specific enough to be meaningful in generated outputs.
+- Put `source:` and `source_url:` on every rule in jurisdiction repos.
 - Keep formulas straight-line when possible.
 - Use ternaries for simple expression-level branching.
 - Use statement `if` blocks only when branch-local assignments make them clearer.
-- Export only the public surface you want importers to depend on.
 - Use `--select-output` to compile the smallest reachable subgraph.
 
 ## Current boundaries

@@ -58,6 +58,76 @@ foo:
             )
 
 
+class TestRuleSpecV1:
+    """Tests for the current structured RuleSpec v1 envelope."""
+
+    def test_parse_rulespec_v1_rules(self):
+        """RuleSpec v1 rules map into the compiler's rule model."""
+        result = parse_rulespec(
+            """
+format: rulespec/v1
+module:
+  summary: |-
+    Test source.
+rules:
+  - name: rate
+    kind: parameter
+    dtype: Rate
+    source: Test Code
+    source_url: https://example.test/rate
+    versions:
+      - effective_from: '2024-01-01'
+        formula: '0.2'
+  - name: tax
+    kind: derived
+    entity: Person
+    period: Year
+    dtype: Money
+    unit: USD
+    source: Test Code
+    source_url: https://example.test/tax
+    versions:
+      - effective_from: '2024-01-01'
+        formula: wages * rate
+"""
+        )
+
+        assert result.statute_text == "Test source."
+        assert result.parameters["rate"].temporal[0].value == 0.2
+        assert result.parameters["rate"].reference == "https://example.test/rate"
+        assert [variable.name for variable in result.variables] == ["tax"]
+        assert result.variables[0].temporal[0].code == "wages * rate"
+        assert result.variables[0].source_citation == "Test Code"
+
+    def test_rulespec_v1_compiles_bare_expression_formula(self):
+        """RuleSpec v1 formulas compile with the same implicit-return semantics."""
+        lowered = parse_rulespec(
+            """
+format: rulespec/v1
+rules:
+  - name: rate
+    kind: parameter
+    dtype: Rate
+    source: Test Code
+    versions:
+      - effective_from: '2024-01-01'
+        formula: '0.2'
+  - name: tax
+    kind: derived
+    entity: Person
+    period: Year
+    dtype: Money
+    source: Test Code
+    versions:
+      - effective_from: '2024-01-01'
+        formula: wages * rate
+"""
+        ).to_lowered_program(outputs=["tax"])
+
+        assert lowered.outputs[0].name == "tax"
+        assert lowered.inputs[0].external_name == "wages"
+
+
 class TestParameterDefinitions:
     """Tests for RuleSpec parameter parsing."""
 

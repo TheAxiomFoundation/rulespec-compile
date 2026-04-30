@@ -116,38 +116,22 @@ class TestCompilerHarness:
         assert summary.failed == 0
         assert "live_stack" in summary.by_category
 
-    def test_run_compiler_harness_rulespec_inline_live_case(self):
-        """The live lane exercises real RuleSpec inline conditional syntax."""
-        self._assert_live_case_passes_or_skips(
-            "live_rulespec_inline_conditional_support"
-        )
+    def test_run_compiler_harness_rulespec_us_v1_payroll_live_case(self):
+        """The live lane compiles a current rules-us RuleSpec v1 payroll file."""
+        self._assert_live_case_passes_or_skips("live_rulespec_us_v1_payroll_tax")
 
-    def test_run_compiler_harness_rulespec_import_live_case(self):
-        """The live lane compiles a real RuleSpec file with context imports."""
-        self._assert_live_case_passes_or_skips("live_rulespec_source_import_resolution")
+    def test_run_compiler_harness_rulespec_us_v1_credit_live_case(self):
+        """The live lane compiles a current rules-us RuleSpec v1 credit file."""
+        self._assert_live_case_passes_or_skips("live_rulespec_us_v1_credit_formula")
 
-    def test_run_compiler_harness_rulespec_us_co_regulation_live_case(self):
-        """The live lane can compile a real state regulation table file."""
-        self._assert_live_case_passes_or_skips(
-            "live_rulespec_us_co_regulation_table_support"
-        )
+    def test_run_compiler_harness_rulespec_us_v1_if_live_case(self):
+        """The live lane compiles a current RuleSpec v1 statement conditional."""
+        self._assert_live_case_passes_or_skips("live_rulespec_us_v1_statement_if")
 
-    def test_run_compiler_harness_rulespec_us_co_regulation_import_runtime_case(self):
-        """Qualified public inputs work for imported state regulation rules."""
+    def test_run_compiler_harness_rulespec_us_v1_nested_live_case(self):
+        """The live lane preserves plural-path identity for nested files."""
         self._assert_live_case_passes_or_skips(
-            "live_rulespec_us_co_regulation_import_graph_resolution"
-        )
-
-    def test_run_compiler_harness_rulespec_us_override_yaml_live_case(self):
-        """The live lane can consume a real rules-us override YAML artifact."""
-        self._assert_live_case_passes_or_skips(
-            "live_rulespec_us_override_yaml_binding_support"
-        )
-
-    def test_run_compiler_harness_rulespec_us_co_statute_import_runtime_case(self):
-        """Qualified public inputs work for imported state statute rules."""
-        self._assert_live_case_passes_or_skips(
-            "live_rulespec_us_co_statute_import_graph_resolution"
+            "live_rulespec_us_v1_nested_path_identity"
         )
 
     def test_run_case_workspace_case_skips_when_repo_is_missing(self, monkeypatch):

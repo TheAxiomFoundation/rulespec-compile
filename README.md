@@ -100,11 +100,10 @@ rulespec-compile compile examples/working_families/benefit_amount.yaml --binding
 # Load rule bindings from a JSON file
 rulespec-compile compile examples/working_families/benefit_amount.yaml --binding-file bindings.json --python -o benefit_amount.py
 
-# Load a real rules-us override artifact
-rulespec-compile compile examples/statute/26/32/b/2/A/base_amounts.yaml \
-  --binding-file ../rules-us/irs/rev-proc-2023-34/eitc-2024.yaml \
-  --effective-date 2024-06-01 \
-  --python -o base_amounts.py
+# Compile a current rules-us RuleSpec v1 module
+rulespec-compile compile ../rules-us/statutes/26/3101/a.yaml \
+  --select-output oasdi_wage_tax \
+  --python -o oasdi_wage_tax.py
 
 # Output to stdout
 rulespec-compile eitc           # JavaScript
@@ -206,7 +205,8 @@ The generic `rulespec-compile compile` path now shares one parsed compile model 
 - Supported: lowered bundle emission via `rulespec-compile lower`, producing a serializable post-resolution artifact with explicit inputs, typed external values, typed ordered computations, and typed public outputs
 - Supported: Rust output via `rulespec-compile compile ... --rust`, using the same lowered bundle as JS/Python for the validated numeric/boolean subset
 - Supported: local file imports written as `import "./shared.yaml"` or `import "../common/base.yaml"`, with graph-wide reachability pruning from the selected outputs
-- Supported: spec-style top-level or per-rule `imports:` blocks using `path#symbol` syntax, including root-qualified paths like `statute/...` and `regulation/...`
+- Supported: current `format: rulespec/v1` files with `rules:` entries, versioned formulas, and plural repository roots such as `statutes/...`, `regulations/...`, and `policies/...`
+- Supported: spec-style top-level or per-rule `imports:` blocks using `path#symbol` syntax, including root-qualified paths like `statutes/...` and `regulations/...`
 - Supported: bare imports like `from "tax/shared.yaml" import rate` when resolved through `rulespec.toml` module roots or repeated `--module-root DIR`
 - Supported: stable workspace package aliases through `rulespec.toml` `[module_resolution.packages]` or repeated `--package NAME=DIR`
 - Supported: import aliases written as `import "./shared.yaml" as shared`, with module-qualified references like `shared.rate`
@@ -215,7 +215,7 @@ The generic `rulespec-compile compile` path now shares one parsed compile model 
 - Supported: module re-exports via `export from "./shared.yaml" import tax, rate as public_rate`
 - Supported: selective imports via `from "./shared.yaml" import tax, threshold as income_threshold`
 - Supported: entry-file output selection against the public export surface, including aliased output names
-- Supported: first-class rule/module identity preserved through lowered bundles and generated citations; canonical `statute/...`, `regulation/...`, and `legislation/...` files use their path identity
+- Supported: first-class rule/module identity preserved through lowered bundles and generated citations; canonical `statutes/...`, `regulations/...`, and `policies/...` files use their path identity
 - Supported: imported free inputs are exposed in lowered bundles and generated runtime interfaces as `module_identity.symbol` instead of merged internal names
 - Unsupported: package registries, remote imports, nested namespace chains beyond `alias.value`, wildcard re-exports, loops, match/case, try/except, and other statement forms outside assignments, `if` / `elif` / `else`, and `return`
 - Unsupported: attribute access, custom helper calls, slices, and other expression forms outside the validated scalar subset
@@ -300,15 +300,8 @@ JSON shape is still accepted as an adapter. The explicit `bindings` form is the
 real contract because it carries rule identity, metadata, and optional
 effective dates.
 
-`--binding-file` can also consume the current RuleSpec-side override artifacts already
-checked into sibling repos, such as `../rules-us/irs/rev-proc-2023-34/eitc-2024.yaml`.
-Those files resolve their `overrides: path#symbol` entries into rule bindings
-automatically, and unrelated entries are ignored when they target rules outside
-the graph you are compiling. Repeated `--binding-file` flags are merged in order.
-
-Current boundary: override artifacts are supported for scalar values and
-integer-indexed tables. Non-integer keyed artifacts, such as rate-bracket
-tables keyed by decimal rates, still fail loudly instead of being coerced.
+`--binding-file` can consume structured JSON/YAML rule-binding bundles. Repeated
+`--binding-file` flags are merged in order.
 
 ### Compiler Harness
 
@@ -321,7 +314,7 @@ failing case first and then make it pass.
 - Use `rulespec-compile harness --json` for machine-readable output
 - Use repeated `--case NAME` to run a focused subset while developing a feature
 - The harness now also validates Rust when `rustc` is available locally
-- `rulespec-compile harness --include-live` opts into curated real-file compatibility checks against sibling repos such as `rules-us`, `rules-us-co`, and current Encoder artifacts
+- `rulespec-compile harness --include-live` opts into curated real-file compatibility checks against current sibling repos such as `rules-us`
 - `rulespec-compile harness --include-external` opts into PolicyEngine-backed oracle cases when `policyengine-us` is installed
 
 ### Validation

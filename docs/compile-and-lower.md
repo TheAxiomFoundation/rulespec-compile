@@ -33,7 +33,7 @@ rulespec-compile compile examples/working_families/benefit_amount.yaml --python 
 ```
 
 Use canonical RuleSpec paths for real source trees rather than generic entrypoint
-names. In other words, prefer `statute/26/32/c/2/A.yaml` over `main.yaml`.
+names. In other words, prefer `statutes/26/32/c/2/A.yaml` over `main.yaml`.
 
 The shipped file-graph example lives in:
 
@@ -99,20 +99,19 @@ JSON rule binding file:
 rulespec-compile compile examples/working_families/benefit_amount.yaml --binding-file bindings.json --python -o benefit_amount.py
 ```
 
-Real RuleSpec-side override artifact:
+Current RuleSpec source from the `rules-us` jurisdiction repo:
 
 ```bash
-rulespec-compile compile examples/statute/26/32/b/2/A/base_amounts.yaml \
-  --binding-file ../rules-us/irs/rev-proc-2023-34/eitc-2024.yaml \
-  --effective-date 2024-06-01 \
-  --python -o base_amounts.py
+rulespec-compile compile ../rules-us/statutes/26/3101/a.yaml \
+  --select-output oasdi_wage_tax \
+  --python -o oasdi_wage_tax.py
 ```
 
 Repeated `--binding-file` flags merge in order, and inline `--binding` flags
 override file values.
 
-Current boundary: override artifacts are supported for scalar values and
-integer-indexed tables. Non-integer keyed artifacts still fail loudly.
+Current boundary: local rule-binding files are supported for scalar values and
+integer-indexed tables. Non-integer keyed bindings still fail loudly.
 
 ## Emit the lowered bundle
 
@@ -137,8 +136,8 @@ Generated Python/JS calculators accept those qualified names directly, and the
 Rust output provides `calculate_public(...)` for the same public-input contract.
 
 This is the backend-neutral seam between RuleSpec source and target-specific codegen.
-For canonical RuleSpec trees, `module_identity` comes from the `statute/...`,
-`regulation/...`, or `legislation/...` path. For ad hoc files outside those
+For canonical RuleSpec trees, `module_identity` comes from the `statutes/...`,
+`regulations/...`, or `policies/...` path. For ad hoc files outside those
 roots, the compiler falls back to the file leaf.
 
 ## Python API

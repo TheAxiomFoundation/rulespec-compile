@@ -19,7 +19,7 @@ were added incrementally and are not unified behind a single contract.
 | Shape | Where | What it carries |
 |-------|-------|-----------------|
 | Python override maps | `compile_model` binding APIs | `{(identity, symbol): value}` dicts, typically populated from test fixtures |
-| JSON override artifacts | CLI `--bindings` flag and harness fixtures | Flat `{identity: {symbol: value}}` objects, often checked in next to examples |
+| JSON rule-binding artifacts | CLI `--bindings` flag and harness fixtures | Flat `{identity: {symbol: value}}` objects, often checked in next to examples |
 | YAML bundles | `rule_bindings.py` | Richer schema with metadata (source URL, effective date, notes) |
 | Re-export resolution | `program.py` | Module-graph walks that resolve aliases before binding |
 
@@ -109,7 +109,7 @@ adapter.
 ## Open questions
 
 - **Identity canonicalization.** How should the resolver treat
-  `statute/us/26/32` vs `statute/us-federal/26/32`? Ties into Decision Seam B
+  `statutes/26/32` vs `statutes/26/32/c/2/A`? Ties into Decision Seam B
   (rule-identity policy).
 - **Effective-date algebra.** Do we want an explicit "no rule" result vs.
   `None`? Callers currently conflate the two.

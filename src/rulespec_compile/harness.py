@@ -572,242 +572,93 @@ tax:
         external=True,
     ),
     HarnessCase(
-        name="live_rulespec_us_override_yaml_binding_support",
+        name="live_rulespec_us_v1_payroll_tax",
         category="live_stack",
         description=(
-            "Real rules-us override YAML artifacts should bind source-backed rules "
-            "through citation-path identities."
+            "Current rules-us RuleSpec v1 files should compile from the plural "
+            "statutes/ layout and preserve path identity."
         ),
-        workspace_entrypoint="rulespec-compile/examples/statute/26/32/b/2/A/base_amounts.yaml",
-        workspace_binding_files=("rules-us/irs/rev-proc-2023-34/eitc-2024.yaml",),
-        effective_date="2024-06-01",
-        outputs=["eitc_pair_total"],
-        inputs={"number_of_qualifying_children": 1},
-        expected_input_names=["number_of_qualifying_children"],
+        workspace_entrypoint="rules-us/statutes/26/3101/a.yaml",
+        outputs=["oasdi_wage_tax"],
+        inputs={"wages": 100000},
+        expected_input_names=["wages"],
         expected_output_module_identities={
-            "eitc_pair_total": "statute/26/32/b/2/A/base_amounts"
+            "oasdi_wage_tax": "statutes/26/3101/a"
         },
-        expected_outputs={"eitc_pair_total": 35110},
+        expected_outputs={"oasdi_wage_tax": 6200},
         live=True,
     ),
     HarnessCase(
-        name="live_rulespec_us_input_variable_support",
+        name="live_rulespec_us_v1_credit_formula",
         category="live_stack",
         description=(
-            "Real rules-us files should treat defaulted no-formula variables "
-            "as public inputs instead of unsupported computations."
+            "Current rules-us RuleSpec v1 credit files should compile source "
+            "parameters and derived formulas together."
         ),
-        workspace_entrypoint="rules-us/statute/26/24/c/2.yaml",
-        outputs=["ctc_meets_citizenship_requirement"],
-        expected_input_names=["is_us_citizen_national_or_resident"],
-        expected_output_module_identities={
-            "ctc_meets_citizenship_requirement": "statute/26/24/c/2"
-        },
-        targets=(),
-        live=True,
-    ),
-    HarnessCase(
-        name="live_rulespec_us_citation_identity",
-        category="live_stack",
-        description=(
-            "Real rules-us files should preserve statute citation paths as module "
-            "identity in the lowered bundle."
-        ),
-        workspace_entrypoint="rules-us/statute/26/21/a/2/A.yaml",
-        outputs=["first_reduction"],
-        expected_output_module_identities={"first_reduction": "statute/26/21/a/2/A"},
-        targets=(),
-        live=True,
-    ),
-    HarnessCase(
-        name="live_rulespec_us_import_graph_resolution",
-        category="live_stack",
-        description=(
-            "Real rules-us imported computed rules should resolve through "
-            "the file graph instead of surfacing as free lowered inputs."
-        ),
-        workspace_entrypoint="rules-us/statute/26/32/32.yaml",
-        outputs=["earned_income_credit"],
-        forbidden_input_names=[
-            "eitc_amount",
-            "eitc_denied_for_excess_investment_income",
-            "meets_full_taxable_year_requirement",
-        ],
-        expected_output_module_identities={"earned_income_credit": "statute/26/32/32"},
-        targets=(),
-        live=True,
-    ),
-    HarnessCase(
-        name="live_rulespec_us_scalar_computed_rule_support",
-        category="live_stack",
-        description=(
-            "Real rules-us scalar computed rules without an entity should "
-            "still lower as computed outputs."
-        ),
-        workspace_entrypoint="rules-us/statute/7/2014/d.yaml",
-        outputs=["snap_self_employment_cost_exclusion"],
-        expected_input_names=[
-            "snap_nonfarm_self_employment_production_costs",
-            "snap_nonfarm_self_employment_gross_income",
-            "snap_farm_self_employment_production_costs",
-        ],
-        expected_output_module_identities={
-            "snap_self_employment_cost_exclusion": "statute/7/2014/d"
-        },
-        targets=(),
-        live=True,
-    ),
-    HarnessCase(
-        name="live_rulespec_inline_conditional_support",
-        category="live_stack",
-        description=(
-            "Real RuleSpec source files should compile inline `if cond: a else: b` "
-            "expressions without requiring manual rewrites."
-        ),
-        workspace_entrypoint=(
-            "rulespec/artifacts/eval-suites/"
-            "us-snap-child-support-deduction-refresh1-ready-20260412/"
-            "01-snap_child_support_deduction/openai-gpt-5.4/source/"
-            "snap_child_support_deduction.yaml"
-        ),
-        outputs=["snap_child_support_deduction"],
+        workspace_entrypoint="rules-us/statutes/26/45A/a.yaml",
+        outputs=["indian_employment_credit"],
         inputs={
-            "snap_child_support_payments_made": 500,
-            "snap_state_uses_child_support_deduction": True,
+            "current_year_qualified_wages": 100000,
+            "current_year_qualified_employee_health_insurance_costs": 20000,
+            "qualified_wages_paid_or_incurred_during_1993": 70000,
+            (
+                "qualified_employee_health_insurance_costs_paid_or_incurred_"
+                "during_1993"
+            ): 10000,
         },
         expected_input_names=[
-            "snap_child_support_payments_made",
-            "snap_state_uses_child_support_deduction",
-        ],
-        expected_outputs={"snap_child_support_deduction": 500},
-        batch_inputs={
-            "snap_child_support_payments_made": [500, 500],
-            "snap_state_uses_child_support_deduction": [True, False],
-        },
-        expected_batch_outputs={"snap_child_support_deduction": [500, 0]},
-        live=True,
-    ),
-    HarnessCase(
-        name="live_rulespec_source_import_resolution",
-        category="live_stack",
-        description=(
-            "Real RuleSpec source files should resolve citation imports through "
-            "their adjacent artifact context instead of surfacing imported helpers "
-            "as free inputs."
-        ),
-        workspace_entrypoint=(
-            "rulespec/artifacts/eval-suites/"
-            "us-snap-net-income-pre-shelter-refresh2-revalidated-ready-20260412/"
-            "01-snap_net_income_pre_shelter/openai-gpt-5.4/source/"
-            "SNAP-pre-shelter-net-income-under-7-USC-2014-e-6-A.yaml"
-        ),
-        outputs=["snap_net_income_pre_shelter"],
-        forbidden_input_names=[
-            "snap_gross_income",
-            "snap_standard_deduction",
-            "snap_earned_income_deduction",
-            "snap_dependent_care_deduction",
-            "snap_child_support_deduction",
-            "snap_excess_medical_expense_deduction",
-            "snap_other_applicable_deductions_before_shelter",
-        ],
-        targets=(),
-        live=True,
-    ),
-    HarnessCase(
-        name="live_rulespec_us_co_regulation_table_support",
-        category="live_stack",
-        description=(
-            "Real state regulation files should compile multiline inline-condition "
-            "tables without flattening them by hand."
-        ),
-        workspace_entrypoint="rules-us-co/regulation/9-CCR-2503-6/3.606.1/F.yaml",
-        outputs=["need_standard_for_assistance_unit"],
-        inputs={
-            "number_of_children_in_assistance_unit": 2,
-            "number_of_caretakers_in_assistance_unit": 1,
-        },
-        expected_input_names=[
-            "number_of_children_in_assistance_unit",
-            "number_of_caretakers_in_assistance_unit",
+            "current_year_qualified_wages",
+            "current_year_qualified_employee_health_insurance_costs",
+            "qualified_wages_paid_or_incurred_during_1993",
+            (
+                "qualified_employee_health_insurance_costs_paid_or_incurred_"
+                "during_1993"
+            ),
         ],
         expected_output_module_identities={
-            "need_standard_for_assistance_unit": "regulation/9-CCR-2503-6/3.606.1/F"
+            "indian_employment_credit": "statutes/26/45A/a"
         },
-        expected_outputs={"need_standard_for_assistance_unit": 421},
+        expected_outputs={"indian_employment_credit": 8000},
         live=True,
     ),
     HarnessCase(
-        name="live_rulespec_us_co_regulation_import_graph_resolution",
+        name="live_rulespec_us_v1_statement_if",
         category="live_stack",
         description=(
-            "State regulation imports should surface imported free inputs through "
-            "qualified rule-identity names instead of merged internal names."
+            "Current rules-us RuleSpec v1 files should compile statement-form "
+            "conditionals."
         ),
-        workspace_entrypoint="rules-us-co/regulation/9-CCR-2503-6/3.606.1/H.yaml",
-        outputs=["meets_gross_income_need_standard_test"],
+        workspace_entrypoint="rules-us/statutes/26/3111/c.yaml",
+        outputs=["employer_wages_exempt_under_section_3111_c"],
         inputs={
-            (
-                "regulation/9-CCR-2503-6/3.606.1/F."
-                "number_of_children_in_assistance_unit"
-            ): 2,
-            (
-                "regulation/9-CCR-2503-6/3.606.1/F."
-                "number_of_caretakers_in_assistance_unit"
-            ): 1,
-            "countable_gross_earned_income_after_disregards": 200,
-            "countable_unearned_income": 200,
+            "is_section_233_social_security_agreement_in_effect": True,
+            "wages_subject_exclusively_to_foreign_social_security_system": 50000,
         },
         expected_input_names=[
-            "regulation/9-CCR-2503-6/3.606.1/F.number_of_children_in_assistance_unit",
-            "regulation/9-CCR-2503-6/3.606.1/F.number_of_caretakers_in_assistance_unit",
-            "countable_gross_earned_income_after_disregards",
-            "countable_unearned_income",
+            "is_section_233_social_security_agreement_in_effect",
+            "wages_subject_exclusively_to_foreign_social_security_system",
         ],
         expected_output_module_identities={
-            "meets_gross_income_need_standard_test": "regulation/9-CCR-2503-6/3.606.1/H"
+            "employer_wages_exempt_under_section_3111_c": "statutes/26/3111/c"
         },
-        expected_outputs={"meets_gross_income_need_standard_test": True},
+        expected_outputs={"employer_wages_exempt_under_section_3111_c": 50000},
         live=True,
     ),
     HarnessCase(
-        name="live_rulespec_us_co_statute_import_graph_resolution",
+        name="live_rulespec_us_v1_nested_path_identity",
         category="live_stack",
         description=(
-            "State statute imports should surface upstream rule inputs through "
-            "qualified rule-identity names."
+            "Nested current rules-us RuleSpec v1 files should keep their plural "
+            "statutes/ path identity."
         ),
-        workspace_entrypoint="rules-us-co/statute/crs/26-2-711/1/a/I.yaml",
-        outputs=[
-            "participant_is_subject_to_sanction_for_noncompliance_with_individual_responsibility_contract"
-        ],
-        inputs={
-            (
-                "statute/crs/26-2-703/12."
-                "contract_is_entered_into_by_participant_and_county_department"
-            ): True,
-            "statute/crs/26-2-703/12.contract_is_pursuant_to_section_26_2_708": True,
-            "participant_fails_to_comply_with_terms_and_conditions_of_contract": True,
-            "good_cause_exists_as_determined_by_county": False,
-        },
-        expected_input_names=[
-            "statute/crs/26-2-703/12.contract_is_entered_into_by_participant_and_county_department",
-            "statute/crs/26-2-703/12.contract_is_pursuant_to_section_26_2_708",
-            "participant_fails_to_comply_with_terms_and_conditions_of_contract",
-            "good_cause_exists_as_determined_by_county",
-        ],
+        workspace_entrypoint="rules-us/statutes/26/63/c/5.yaml",
+        outputs=["dependent_standard_deduction"],
+        inputs={"earned_income": 1000},
+        expected_input_names=["earned_income"],
         expected_output_module_identities={
-            (
-                "participant_is_subject_to_sanction_for_noncompliance_with_"
-                "individual_responsibility_contract"
-            ): "statute/crs/26-2-711/1/a/I"
+            "dependent_standard_deduction": "statutes/26/63/c/5"
         },
-        expected_outputs={
-            (
-                "participant_is_subject_to_sanction_for_noncompliance_with_"
-                "individual_responsibility_contract"
-            ): True
-        },
+        expected_outputs={"dependent_standard_deduction": 1450},
         live=True,
     ),
 )
