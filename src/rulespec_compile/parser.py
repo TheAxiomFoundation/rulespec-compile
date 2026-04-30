@@ -646,14 +646,7 @@ def _derive_module_identity(origin: Path | None) -> str:
         return ""
     resolved = origin.resolve()
     parts = resolved.parts
-    for root_name in (
-        "statutes",
-        "regulations",
-        "policies",
-        "statute",
-        "regulation",
-        "legislation",
-    ):
+    for root_name in ("statutes", "regulations", "policies"):
         if root_name not in parts:
             continue
         root_index = parts.index(root_name)

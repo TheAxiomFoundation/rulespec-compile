@@ -27,7 +27,7 @@ class TestRuleBindings:
                     "metadata": {"name": "TY2025"},
                     "bindings": [
                         {
-                            "module_identity": "statute/26/32/c/2/A",
+                            "module_identity": "statutes/26/32/c/2/A",
                             "symbol": "phase_in_rate",
                             "effective_date": "2025-01-01",
                             "values": {"0": 0.34},
@@ -44,7 +44,7 @@ class TestRuleBindings:
         assert bundle.metadata == {"name": "TY2025"}
         assert len(bundle.bindings) == 1
         assert bundle.bindings[0].target == RuleBindingTarget(
-            module_identity="statute/26/32/c/2/A",
+            module_identity="statutes/26/32/c/2/A",
             symbol="phase_in_rate",
         )
         assert bundle.bindings[0].effective_date == date(2025, 1, 1)
@@ -108,9 +108,11 @@ class TestRuleBindings:
         with pytest.raises(RuleBindingError, match="has only effective-dated bindings"):
             resolver.resolve(module_identity="shared", symbol="rate")
 
-    def test_load_rule_binding_file_supports_rulespec_us_override_yaml(self, tmp_path):
-        """RuleSpec override YAML loads into dated identity-aware bindings."""
-        path = tmp_path / "eitc-2024.yaml"
+    def test_load_rule_binding_file_rejects_removed_override_artifacts(
+        self, tmp_path
+    ):
+        """Removed override-artifact YAML fails with migration guidance."""
+        path = tmp_path / "artifact.yaml"
         path.write_text(
             """
 source:
@@ -120,8 +122,8 @@ source:
   effective_date: 2024-01-01
 
 earned_income_amount:
-  implements: statute/26/32/j/1
-  overrides: statute/26/32/b/2/A/base_amounts#earned_income_amount
+  implements: statutes/26/32/j/1
+  overrides: statutes/26/32/b/2/A/base_amounts#earned_income_amount
   indexed_by: num_qualifying_children
   values:
     0: 8260
@@ -129,71 +131,5 @@ earned_income_amount:
 """
         )
 
-        bundle = load_rule_bindings_file(path)
-
-        assert len(bundle.bindings) == 1
-        entry = bundle.bindings[0]
-        assert entry.target == RuleBindingTarget(
-            module_identity="statute/26/32/b/2/A/base_amounts",
-            symbol="earned_income_amount",
-        )
-        assert entry.effective_date == date(2024, 1, 1)
-        assert entry.binding == RuleBinding(
-            values={0: 8260.0, 1: 12390.0},
-            source="Rev. Proc. 2023-34 § 3.06",
-            reference="statute/26/32/j/1; https://www.irs.gov/example",
-        )
-
-    def test_load_rule_binding_file_supports_rulespec_override_artifact(self, tmp_path):
-        """Override-style .yaml artifacts strip prose blocks before loading."""
-        path = tmp_path / "artifact.yaml"
-        path.write_text(
-            '''
-"""
-Artifact prose block that is not part of the data payload.
-"""
-
-source:
-  title: "Rev. Proc. 2023-34"
-  effective_date: 2024-01-01
-
-joint_return_adjustment:
-  overrides: statute/26/32/b/2/B/base_joint_return_adjustment#joint_return_adjustment
-  value: 6920
-'''
-        )
-
-        bundle = load_rule_bindings_file(path)
-
-        assert len(bundle.bindings) == 1
-        entry = bundle.bindings[0]
-        assert entry.target == RuleBindingTarget(
-            module_identity="statute/26/32/b/2/B/base_joint_return_adjustment",
-            symbol="joint_return_adjustment",
-        )
-        assert entry.binding == RuleBinding(
-            values={0: 6920.0},
-            source="Rev. Proc. 2023-34",
-        )
-
-    def test_load_rule_binding_file_rejects_non_integer_override_indices(
-        self, tmp_path
-    ):
-        """Rate-table override artifacts fail until non-integer tables are supported."""
-        path = tmp_path / "tax-brackets-2024.yaml"
-        path.write_text(
-            """
-source:
-  document: "Rev. Proc. 2023-34"
-
-single:
-  overrides: statute/26/1/brackets/base_thresholds#single
-  indexed_by: rate
-  values:
-    0.10: 0
-    0.12: 11600
-"""
-        )
-
-        with pytest.raises(RuleBindingError, match="integer indices"):
+        with pytest.raises(RuleBindingError, match="removed override-artifact syntax"):
             load_rule_bindings_file(path)

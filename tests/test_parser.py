@@ -428,15 +428,15 @@ import "./base.yaml"
         result = parse_rulespec(
             """
 imports:
-  - statute/crs/26-2-703/12#is_individual_responsibility_contract
-  - regulation/9-CCR-2503-6/3.606.1/F#need_standard_for_assistance_unit
+  - statutes/crs/26-2-703/12#is_individual_responsibility_contract
+  - regulations/9-CCR-2503-6/3.606.1/F#need_standard_for_assistance_unit
 """,
             origin=origin,
         )
 
         assert result.imports == [
-            "statute/crs/26-2-703/12",
-            "regulation/9-CCR-2503-6/3.606.1/F",
+            "statutes/crs/26-2-703/12",
+            "regulations/9-CCR-2503-6/3.606.1/F",
         ]
         assert result.import_specs[0].symbols[0].name == (
             "is_individual_responsibility_contract"
@@ -593,7 +593,7 @@ source:
   accessed: 2025-12-12
 
 credit_pct:
-  source: statute/26/32/b/1/credit_pct
+  source: statutes/26/32/b/1/credit_pct
 
 earned_income_amount:
   source: guidance/irs/rp-24-40/eitc/earned_income_amount

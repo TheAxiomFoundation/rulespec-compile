@@ -326,8 +326,8 @@ tax:
         assert "taxable_income" not in result
 
     def test_load_rulespec_program_resolves_spec_style_variable_imports(self, tmp_path):
-        """Per-variable `imports:` blocks resolve through statute-root paths."""
-        statute_root = tmp_path / "statute" / "26" / "62"
+        """Per-variable `imports:` blocks resolve through statutes-root paths."""
+        statute_root = tmp_path / "statutes" / "26" / "62"
         statute_root.mkdir(parents=True)
         (statute_root / "62.yaml").write_text(
             """
@@ -337,7 +337,7 @@ adjusted_gross_income:
   dtype: Money
 """
         )
-        target_root = tmp_path / "statute" / "26" / "21" / "a" / "2"
+        target_root = tmp_path / "statutes" / "26" / "21" / "a" / "2"
         target_root.mkdir(parents=True)
         entry = target_root / "A.yaml"
         entry.write_text(
@@ -358,15 +358,15 @@ first_reduction:
         )
 
         assert [compiled_input.name for compiled_input in lowered.inputs] == [
-            "statute_26_62_62_adjusted_gross_income"
+            "statutes_26_62_62_adjusted_gross_income"
         ]
-        assert lowered.outputs[0].module_identity == "statute/26/21/a/2/A"
+        assert lowered.outputs[0].module_identity == "statutes/26/21/a/2/A"
 
     def test_load_rulespec_program_resolves_root_qualified_top_level_imports(
         self, tmp_path
     ):
         """Top-level `imports:` blocks can target root-qualified citation paths."""
-        dependency_root = tmp_path / "statute" / "crs" / "26-2-703"
+        dependency_root = tmp_path / "statutes" / "crs" / "26-2-703"
         dependency_root.mkdir(parents=True)
         (dependency_root / "12.yaml").write_text(
             """
@@ -389,13 +389,13 @@ is_individual_responsibility_contract:
     contract_is_pursuant_to_section_26_2_708
 """
         )
-        entry_root = tmp_path / "statute" / "crs" / "26-2-711" / "1" / "a"
+        entry_root = tmp_path / "statutes" / "crs" / "26-2-711" / "1" / "a"
         entry_root.mkdir(parents=True)
         entry = entry_root / "I.yaml"
         entry.write_text(
             """
 imports:
-  - statute/crs/26-2-703/12#is_individual_responsibility_contract
+  - statutes/crs/26-2-703/12#is_individual_responsibility_contract
 
 participant_fails_to_comply_with_terms_and_conditions_of_contract:
   entity: Person
@@ -431,16 +431,16 @@ participant_is_subject_to_sanction_for_noncompliance_with_individual_responsibil
             "participant_fails_to_comply_with_terms_and_conditions_of_contract",
             "good_cause_exists_as_determined_by_county",
             (
-                "statute/crs/26-2-703/12."
+                "statutes/crs/26-2-703/12."
                 "contract_is_entered_into_by_participant_and_county_department"
             ),
-            "statute/crs/26-2-703/12.contract_is_pursuant_to_section_26_2_708",
+            "statutes/crs/26-2-703/12.contract_is_pursuant_to_section_26_2_708",
         }
-        assert "statute/crs/26-2-703/12.is_individual_responsibility_contract" not in {
+        assert "statutes/crs/26-2-703/12.is_individual_responsibility_contract" not in {
             compiled_input.public_name or compiled_input.name
             for compiled_input in lowered.inputs
         }
-        assert lowered.outputs[0].module_identity == "statute/crs/26-2-711/1/a/I"
+        assert lowered.outputs[0].module_identity == "statutes/crs/26-2-711/1/a/I"
 
         namespace: dict[str, object] = {}
         code = (
@@ -458,11 +458,11 @@ participant_is_subject_to_sanction_for_noncompliance_with_individual_responsibil
         result = namespace["calculate"](
             **{
                 (
-                    "statute/crs/26-2-703/12."
+                    "statutes/crs/26-2-703/12."
                     "contract_is_entered_into_by_participant_and_county_department"
                 ): True,
                 (
-                    "statute/crs/26-2-703/12.contract_is_pursuant_to_section_26_2_708"
+                    "statutes/crs/26-2-703/12.contract_is_pursuant_to_section_26_2_708"
                 ): True,
                 (
                     "participant_fails_to_comply_with_terms_and_conditions_of_contract"
@@ -695,7 +695,7 @@ tax:
         self, tmp_path
     ):
         """Fail loudly when two distinct identities normalize to the same prefix."""
-        statute_dir = tmp_path / "statute" / "us"
+        statute_dir = tmp_path / "statutes" / "us"
         statute_dir.mkdir(parents=True)
         (statute_dir / "bar-baz.yaml").write_text(
             """
@@ -711,7 +711,7 @@ rate_b:
   from 2024-01-01: 0.2
 """
         )
-        entry = tmp_path / "statute" / "us" / "entry.yaml"
+        entry = tmp_path / "statutes" / "us" / "entry.yaml"
         entry.write_text(
             """
 import "./bar-baz.yaml"
@@ -737,7 +737,7 @@ tax:
         assert str(statute_dir / "bar-baz.yaml") in message
         assert str(statute_dir / "bar_baz.yaml") in message
         # The internal symbol prefix that collided should be shown.
-        assert "statute_us_bar_baz" in message
+        assert "statutes_us_bar_baz" in message
         # The remediation suggestion should be present.
         assert "rename" in message.lower()
 

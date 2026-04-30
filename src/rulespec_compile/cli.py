@@ -183,10 +183,7 @@ def _add_program_compile_arguments(command_parser: argparse.ArgumentParser) -> N
         "--binding-file",
         action="append",
         type=Path,
-        help=(
-            "Load external rule bindings from JSON, YAML, or supported override "
-            "artifact files"
-        ),
+        help="Load external rule bindings from JSON or YAML bundle files",
     )
     command_parser.add_argument(
         "--parameter",

@@ -695,7 +695,7 @@ def _resolve_citation_relative_import_path(
     if candidate.is_absolute() or import_path.startswith(".") or candidate.suffix:
         return None
 
-    root_names = ("statute", "regulation", "legislation")
+    root_names = ("statutes", "regulations", "policies")
     importer_parts = importer.resolve().parts
     candidate_parts = candidate.parts
     if candidate_parts and candidate_parts[0] in root_names:

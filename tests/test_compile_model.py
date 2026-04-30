@@ -74,7 +74,7 @@ ctc_meets_citizenship_requirement:
 
     def test_imported_declared_inputs_lower_with_qualified_public_names(self, tmp_path):
         """Imported free inputs keep rule-identity public names in lowered bundles."""
-        shared = tmp_path / "statute" / "shared" / "rate.yaml"
+        shared = tmp_path / "statutes" / "shared" / "rate.yaml"
         shared.parent.mkdir(parents=True)
         shared.write_text(
             """
@@ -91,11 +91,11 @@ taxable_amount:
     wages * 2
 """
         )
-        entry = tmp_path / "statute" / "shared" / "benefit.yaml"
+        entry = tmp_path / "statutes" / "shared" / "benefit.yaml"
         entry.write_text(
             """
 imports:
-  - statute/shared/rate#taxable_amount
+  - statutes/shared/rate#taxable_amount
 
 benefit:
   entity: Person
@@ -112,7 +112,7 @@ benefit:
             compiled_input.public_name or compiled_input.name
             for compiled_input in lowered.inputs
         } == {
-            "statute/shared/rate.wages",
+            "statutes/shared/rate.wages",
             "base_amount",
         }
 

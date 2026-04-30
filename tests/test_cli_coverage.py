@@ -301,9 +301,9 @@ tax:
                 output = mock_print.call_args_list[0][0][0]
                 assert "0.45" in output
 
-    def test_compile_binding_file_supports_rulespec_override_yaml(self, tmp_path):
-        """Compile can load RuleSpec override YAML through --binding-file."""
-        base_amounts = tmp_path / "statute" / "26" / "32" / "b" / "2" / "A"
+    def test_compile_binding_file_supports_indexed_structured_yaml(self, tmp_path):
+        """Compile can load indexed structured YAML through --binding-file."""
+        base_amounts = tmp_path / "statutes" / "26" / "32" / "b" / "2" / "A"
         base_amounts.mkdir(parents=True)
         input_file = base_amounts / "base_amounts.yaml"
         binding_file = tmp_path / "eitc-2024.yaml"
@@ -333,24 +333,24 @@ eitc_pair_total:
         )
         binding_file.write_text(
             """
-source:
-  document: "Rev. Proc. 2023-34"
-  section: "3.06"
-  effective_date: 2024-01-01
-
-earned_income_amount:
-  overrides: statute/26/32/b/2/A/base_amounts#earned_income_amount
-  indexed_by: num_qualifying_children
-  values:
-    0: 8260
-    1: 12390
-
-phaseout_amount:
-  overrides: statute/26/32/b/2/A/base_amounts#phaseout_amount
-  indexed_by: num_qualifying_children
-  values:
-    0: 10330
-    1: 22720
+schema_version: 1
+metadata:
+  name: EITC 2024 values
+bindings:
+  - module_identity: statutes/26/32/b/2/A/base_amounts
+    symbol: earned_income_amount
+    effective_date: '2024-01-01'
+    source: Rev. Proc. 2023-34
+    values:
+      0: 8260
+      1: 12390
+  - module_identity: statutes/26/32/b/2/A/base_amounts
+    symbol: phaseout_amount
+    effective_date: '2024-01-01'
+    source: Rev. Proc. 2023-34
+    values:
+      0: 10330
+      1: 22720
 """
         )
         with patch(
@@ -376,7 +376,7 @@ phaseout_amount:
         """Repeated binding files merge into one external-rule resolver."""
         input_file = tmp_path / "tax.yaml"
         scalar_bundle = tmp_path / "scalar.json"
-        artifact_bundle = tmp_path / "artifact.yaml"
+        allowance_bundle = tmp_path / "allowance.yaml"
         input_file.write_text(
             """
 rate:
@@ -393,16 +393,24 @@ tax:
     return wages * rate + allowance
 """
         )
-        scalar_bundle.write_text(json.dumps({"rate": 0.2}))
-        artifact_bundle.write_text(
+        scalar_bundle.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "bindings": [{"symbol": "rate", "value": 0.2}],
+                }
+            )
+        )
+        allowance_bundle.write_text(
             """
-source:
-  title: "Allowance memo"
-  effective_date: 2024-01-01
-
-allowance:
-  overrides: tax#allowance
-  value: 5
+schema_version: 1
+metadata:
+  name: Allowance memo
+bindings:
+  - symbol: allowance
+    effective_date: '2024-01-01'
+    value: 5
+    source: Allowance memo
 """
         )
         with patch(
@@ -417,7 +425,7 @@ allowance:
                 "--binding-file",
                 str(scalar_bundle),
                 "--binding-file",
-                str(artifact_bundle),
+                str(allowance_bundle),
             ],
         ):
             with patch("builtins.print") as mock_print:

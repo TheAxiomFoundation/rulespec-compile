@@ -225,7 +225,7 @@ def merge_rule_bindings(
 
 
 def load_rule_bindings_file(path: Path | None) -> RuleBindingBundle:
-    """Load external rule bindings from JSON, YAML, or override artifact files."""
+    """Load external rule bindings from JSON or YAML bundle files."""
     if path is None:
         return RuleBindingBundle()
     try:
@@ -247,15 +247,14 @@ def load_rule_bindings_file(path: Path | None) -> RuleBindingBundle:
             source_label=f"Rule binding file '{path}'",
         )
     if _looks_like_override_artifact(raw):
-        return _parse_override_artifact_bundle(
-            raw,
-            source_label=f"Rule binding file '{path}'",
-            artifact_path=path,
-        )
-    if path.suffix.lower() == ".yaml":
         raise RuleBindingError(
-            f"Rule binding file '{path}' is not a supported override artifact. "
-            "Expected top-level entries with 'overrides:' targets."
+            f"Rule binding file '{path}' uses removed override-artifact syntax. "
+            "Rewrite it as a schema_version: 1 bundle with a 'bindings' list."
+        )
+    if path.suffix.lower() in {".yaml", ".yml"}:
+        raise RuleBindingError(
+            f"Rule binding file '{path}' is not a supported rule-binding file. "
+            "Expected a schema_version: 1 bundle with a 'bindings' list."
         )
     return RuleBindingBundle(bindings=tuple(_parse_plain_rule_map(raw)))
 
@@ -273,10 +272,7 @@ def _load_rule_binding_mapping(path: Path) -> Any:
             ) from exc
 
     if suffix in {".yaml", ".yml"}:
-        try:
-            return _load_yaml_binding_mapping(path, text)
-        except RuleBindingError:
-            return _load_yaml_binding_mapping(path, _strip_rulespec_docstrings(text))
+        return _load_yaml_binding_mapping(path, text)
 
     try:
         return json.loads(text)
@@ -292,24 +288,6 @@ def _load_yaml_binding_mapping(path: Path, text: str) -> Any:
         raise RuleBindingError(
             f"Rule binding file '{path}' is not valid YAML: {exc}."
         ) from exc
-
-
-def _strip_rulespec_docstrings(text: str) -> str:
-    """Remove triple-quoted prose blocks from override-style .yaml artifacts."""
-    stripped_lines: list[str] = []
-    in_docstring = False
-    for line in text.splitlines():
-        marker_count = line.count('"""')
-        if in_docstring:
-            if marker_count % 2 == 1:
-                in_docstring = False
-            continue
-        if marker_count:
-            if marker_count % 2 == 1:
-                in_docstring = True
-            continue
-        stripped_lines.append(line)
-    return "\n".join(stripped_lines)
 
 
 def _parse_rule_binding_bundle(
@@ -450,169 +428,13 @@ def _looks_like_legacy_parameter_bundle(raw: dict[str, Any]) -> bool:
 
 
 def _looks_like_override_artifact(raw: dict[str, Any]) -> bool:
-    """Return whether a mapping looks like a RuleSpec override artifact."""
+    """Return whether a mapping uses removed override-artifact syntax."""
     for key, value in raw.items():
         if key in {"source", "status"}:
             continue
         if isinstance(value, dict) and "overrides" in value:
             return True
     return False
-
-
-def _parse_override_artifact_bundle(
-    raw: dict[str, Any],
-    *,
-    source_label: str,
-    artifact_path: Path,
-) -> RuleBindingBundle:
-    """Parse a RuleSpec-side override artifact into a binding bundle."""
-    source_block = raw.get("source")
-    source_summary = _format_artifact_source(source_block)
-    effective_date = _parse_artifact_effective_date(
-        source_block,
-        source_label=source_label,
-    )
-
-    bindings: list[RuleBindingEntry] = []
-    for name, payload in raw.items():
-        if name in {"source", "status"}:
-            continue
-        if not isinstance(payload, dict):
-            raise RuleBindingError(
-                f"{source_label} entry '{name}' must be an object with 'overrides:'."
-            )
-        override_target = payload.get("overrides")
-        if not isinstance(override_target, str) or "#" not in override_target:
-            raise RuleBindingError(
-                f"{source_label} entry '{name}' must define an overrides target like "
-                "'path#symbol'."
-            )
-        module_identity, symbol = override_target.rsplit("#", 1)
-        if not module_identity or not symbol:
-            raise RuleBindingError(
-                f"{source_label} entry '{name}' has invalid overrides target "
-                f"'{override_target}'."
-            )
-        values_payload = _artifact_value_payload(
-            name,
-            payload,
-            source_label=source_label,
-        )
-        binding = RuleBinding(
-            values=_normalize_binding_values_from_artifact(
-                name,
-                values_payload,
-                source_label=source_label,
-            ),
-            source=source_summary or artifact_path.as_posix(),
-            description=_optional_string(payload.get("description")),
-            unit=_optional_string(payload.get("unit")),
-            reference=_format_artifact_reference(source_block, payload),
-        )
-        bindings.append(
-            RuleBindingEntry(
-                target=RuleBindingTarget(
-                    module_identity=module_identity,
-                    symbol=symbol,
-                ),
-                binding=binding,
-                effective_date=effective_date,
-            )
-        )
-    return RuleBindingBundle(
-        bindings=tuple(bindings),
-        metadata={"artifact_path": artifact_path.as_posix()},
-        allow_unused_entries=True,
-    )
-
-
-def _artifact_value_payload(
-    name: str,
-    payload: dict[str, Any],
-    *,
-    source_label: str,
-) -> Any:
-    """Extract the concrete value payload from one override artifact entry."""
-    if "value" in payload:
-        return payload["value"]
-    if "values" in payload:
-        return payload["values"]
-    if "brackets" in payload:
-        return payload["brackets"]
-    raise RuleBindingError(
-        f"{source_label} entry '{name}' must include 'value', 'values', or 'brackets'."
-    )
-
-
-def _format_artifact_source(source_block: Any) -> str:
-    """Build a compact human-readable source label from an artifact source block."""
-    if source_block is None:
-        return ""
-    if isinstance(source_block, str):
-        return source_block
-    if not isinstance(source_block, dict):
-        raise RuleBindingError(
-            "Override artifact source metadata must be a string or object."
-        )
-    document = _optional_string(source_block.get("document"))
-    title = _optional_string(source_block.get("title"))
-    section = _optional_string(source_block.get("section"))
-    parts = [part for part in (document or title, section) if part]
-    return " § ".join(parts)
-
-
-def _parse_artifact_effective_date(
-    source_block: Any,
-    *,
-    source_label: str,
-) -> date | None:
-    """Parse one artifact-wide effective date."""
-    if source_block is None:
-        return None
-    if isinstance(source_block, str):
-        return None
-    if not isinstance(source_block, dict):
-        raise RuleBindingError(
-            "Override artifact source metadata must be a string or object."
-        )
-    raw_effective_date = source_block.get("effective_date")
-    if raw_effective_date is None:
-        return None
-    if isinstance(raw_effective_date, date):
-        return raw_effective_date
-    if not isinstance(raw_effective_date, str):
-        raise RuleBindingError(
-            f"{source_label} has a non-string effective_date in its source metadata."
-        )
-    try:
-        return date.fromisoformat(raw_effective_date)
-    except ValueError as exc:
-        raise RuleBindingError(
-            f"{source_label} has invalid effective_date '{raw_effective_date}'."
-        ) from exc
-
-
-def _format_artifact_reference(
-    source_block: Any,
-    payload: dict[str, Any],
-) -> str | None:
-    """Build a compact reference string from artifact entry metadata."""
-    parts: list[str] = []
-    implements = _optional_string(payload.get("implements"))
-    if implements:
-        parts.append(implements)
-    citations = payload.get("citations")
-    if isinstance(citations, list):
-        parts.extend(str(item) for item in citations if item is not None)
-    elif citations is not None:
-        parts.append(str(citations))
-    if isinstance(source_block, dict):
-        url = _optional_string(source_block.get("url"))
-        if url:
-            parts.append(url)
-    if not parts:
-        return None
-    return "; ".join(parts)
 
 
 def _normalize_rule_binding(name: str, raw: Any) -> RuleBinding:
@@ -640,21 +462,6 @@ def _normalize_rule_binding(name: str, raw: Any) -> RuleBinding:
     raise RuleBindingError(
         f"Unsupported rule binding for '{name}': {type(raw).__name__}"
     )
-
-
-def _normalize_binding_values_from_artifact(
-    name: str,
-    raw: Any,
-    *,
-    source_label: str,
-) -> dict[int, float]:
-    """Normalize one override artifact value payload."""
-    try:
-        return _normalize_binding_values(name, raw)
-    except RuleBindingError as exc:
-        raise RuleBindingError(
-            f"{source_label} entry '{name}' is unsupported: {exc}"
-        ) from exc
 
 
 def _merge_rule_binding(earlier: RuleBinding, later: RuleBinding) -> RuleBinding:

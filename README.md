@@ -199,7 +199,7 @@ The generic `rulespec-compile compile` path now shares one parsed compile model 
 - Supported: inline numeric external rule values from `.yaml` `values:` blocks and single-entry temporal `.yaml` source rules, with exact integer-vs-number kinds preserved in the lowered bundle
 - Supported: multi-entry temporal unified `.yaml` external values and formulas when `--effective-date` is provided
 - Supported: source-only external rules when you bind them explicitly with `--binding NAME=VALUE`, `--binding module_identity.symbol=VALUE`, or indexed variants
-- Supported: source-only external rules from repeated `--binding-file` inputs, including JSON/YAML bundles and the current `rules-us` override-artifact format, with inline `--binding` flags overriding file values
+- Supported: source-only external rules from repeated `--binding-file` inputs, including JSON/YAML rule-binding bundles, with inline `--binding` flags overriding file values
 - Supported: explicit scalar-vs-indexed external lookup contracts in the lowered bundle, with bare rule references validated against resolved value shape
 - Supported: output-focused compilation via repeated `--select-output NAME`, pruning to the reachable variable subgraph for those outputs
 - Supported: lowered bundle emission via `rulespec-compile lower`, producing a serializable post-resolution artifact with explicit inputs, typed external values, typed ordered computations, and typed public outputs
@@ -253,18 +253,8 @@ rendering.
 
 ### Rule Binding Bundle Format
 
-`--binding-file` accepts either a simple compatibility map:
-
-```json
-{
-  "rate": 0.25,
-  "shared.rate": 0.3,
-  "thresholds": [10000, 20000, 30000]
-}
-```
-
-Or a structured bundle with schema/versioning, rule identity, and optional
-effective dates:
+`--binding-file` accepts a structured bundle with schema/versioning, rule
+identity, and optional effective dates:
 
 ```json
 {
@@ -295,13 +285,9 @@ effective dates:
 }
 ```
 
-The compatibility-map form still works, and the older `parameters`-enveloped
-JSON shape is still accepted as an adapter. The explicit `bindings` form is the
-real contract because it carries rule identity, metadata, and optional
-effective dates.
-
-`--binding-file` can consume structured JSON/YAML rule-binding bundles. Repeated
-`--binding-file` flags are merged in order.
+The explicit `bindings` form is the file contract because it carries rule
+identity, metadata, and optional effective dates. Repeated `--binding-file`
+flags are merged in order.
 
 ### Compiler Harness
 
