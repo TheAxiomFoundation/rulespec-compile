@@ -715,10 +715,10 @@ rules:
         name="live_rulespec_us_v1_payroll_tax",
         category="live_stack",
         description=(
-            "Current rules-us RuleSpec v1 files should compile from the plural "
+            "Current rulespec-us RuleSpec v1 files should compile from the plural "
             "statutes/ layout and preserve path identity."
         ),
-        workspace_entrypoint="rules-us/statutes/26/3101/a.yaml",
+        workspace_entrypoint="rulespec-us/statutes/26/3101/a.yaml",
         outputs=["oasdi_wage_tax"],
         inputs={"wages": 100000},
         expected_input_names=["wages"],
@@ -730,10 +730,10 @@ rules:
         name="live_rulespec_us_v1_credit_formula",
         category="live_stack",
         description=(
-            "Current rules-us RuleSpec v1 credit files should compile source "
+            "Current rulespec-us RuleSpec v1 credit files should compile source "
             "parameters and derived formulas together."
         ),
-        workspace_entrypoint="rules-us/statutes/26/45A/a.yaml",
+        workspace_entrypoint="rulespec-us/statutes/26/45A/a.yaml",
         outputs=["indian_employment_credit"],
         inputs={
             "current_year_qualified_wages": 100000,
@@ -759,10 +759,10 @@ rules:
         name="live_rulespec_us_v1_statement_if",
         category="live_stack",
         description=(
-            "Current rules-us RuleSpec v1 files should compile statement-form "
+            "Current rulespec-us RuleSpec v1 files should compile statement-form "
             "conditionals."
         ),
-        workspace_entrypoint="rules-us/statutes/26/3111/c.yaml",
+        workspace_entrypoint="rulespec-us/statutes/26/3111/c.yaml",
         outputs=["employer_wages_exempt_under_section_3111_c"],
         inputs={
             "is_section_233_social_security_agreement_in_effect": True,
@@ -782,10 +782,10 @@ rules:
         name="live_rulespec_us_v1_nested_path_identity",
         category="live_stack",
         description=(
-            "Nested current rules-us RuleSpec v1 files should keep their plural "
+            "Nested current rulespec-us RuleSpec v1 files should keep their plural "
             "statutes/ path identity."
         ),
-        workspace_entrypoint="rules-us/statutes/26/63/c/5.yaml",
+        workspace_entrypoint="rulespec-us/statutes/26/63/c/5.yaml",
         outputs=["dependent_standard_deduction"],
         inputs={"earned_income": 1000},
         expected_input_names=["earned_income"],

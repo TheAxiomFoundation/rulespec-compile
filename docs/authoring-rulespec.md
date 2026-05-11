@@ -60,10 +60,10 @@ rules:
 
 Current jurisdiction examples live in:
 
-- `/Users/maxghenis/TheAxiomFoundation/rules-us/statutes/26/3101/a.yaml`
-- `/Users/maxghenis/TheAxiomFoundation/rules-us/statutes/26/45A/a.yaml`
-- `/Users/maxghenis/TheAxiomFoundation/rules-us/statutes/26/63/c.yaml`
-- `/Users/maxghenis/TheAxiomFoundation/rules-us/statutes/26/63/c/5.yaml`
+- `/Users/maxghenis/TheAxiomFoundation/rulespec-us/statutes/26/3101/a.yaml`
+- `/Users/maxghenis/TheAxiomFoundation/rulespec-us/statutes/26/45A/a.yaml`
+- `/Users/maxghenis/TheAxiomFoundation/rulespec-us/statutes/26/63/c.yaml`
+- `/Users/maxghenis/TheAxiomFoundation/rulespec-us/statutes/26/63/c/5.yaml`
 
 ## Parameter Rules
 

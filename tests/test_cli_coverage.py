@@ -369,10 +369,10 @@ rules:
   default: 0
 - name: earned_income_amount
   kind: parameter
-  source: external/rules-us
+  source: external/rulespec-us
 - name: phaseout_amount
   kind: parameter
-  source: external/rules-us
+  source: external/rulespec-us
 - name: eitc_pair_total
   kind: derived
   entity: TaxUnit

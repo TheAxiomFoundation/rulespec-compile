@@ -99,10 +99,10 @@ JSON rule binding file:
 rulespec-compile compile examples/working_families/benefit_amount.yaml --binding-file bindings.json --python -o benefit_amount.py
 ```
 
-Current RuleSpec source from the `rules-us` jurisdiction repo:
+Current RuleSpec source from the `rulespec-us` jurisdiction repo:
 
 ```bash
-rulespec-compile compile ../rules-us/statutes/26/3101/a.yaml \
+rulespec-compile compile ../rulespec-us/statutes/26/3101/a.yaml \
   --select-output oasdi_wage_tax \
   --python -o oasdi_wage_tax.py
 ```

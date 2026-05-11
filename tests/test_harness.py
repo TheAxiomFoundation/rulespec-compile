@@ -117,11 +117,11 @@ class TestCompilerHarness:
         assert "live_stack" in summary.by_category
 
     def test_run_compiler_harness_rulespec_us_v1_payroll_live_case(self):
-        """The live lane compiles a current rules-us RuleSpec v1 payroll file."""
+        """The live lane compiles a current rulespec-us RuleSpec v1 payroll file."""
         self._assert_live_case_passes_or_skips("live_rulespec_us_v1_payroll_tax")
 
     def test_run_compiler_harness_rulespec_us_v1_credit_live_case(self):
-        """The live lane compiles a current rules-us RuleSpec v1 credit file."""
+        """The live lane compiles a current rulespec-us RuleSpec v1 credit file."""
         self._assert_live_case_passes_or_skips("live_rulespec_us_v1_credit_formula")
 
     def test_run_compiler_harness_rulespec_us_v1_if_live_case(self):

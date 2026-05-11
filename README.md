@@ -100,8 +100,8 @@ rulespec-compile compile examples/working_families/benefit_amount.yaml --binding
 # Load rule bindings from a JSON file
 rulespec-compile compile examples/working_families/benefit_amount.yaml --binding-file bindings.json --python -o benefit_amount.py
 
-# Compile a current rules-us RuleSpec v1 module
-rulespec-compile compile ../rules-us/statutes/26/3101/a.yaml \
+# Compile a current rulespec-us RuleSpec v1 module
+rulespec-compile compile ../rulespec-us/statutes/26/3101/a.yaml \
   --select-output oasdi_wage_tax \
   --python -o oasdi_wage_tax.py
 
@@ -300,7 +300,7 @@ failing case first and then make it pass.
 - Use `rulespec-compile harness --json` for machine-readable output
 - Use repeated `--case NAME` to run a focused subset while developing a feature
 - The harness now also validates Rust when `rustc` is available locally
-- `rulespec-compile harness --include-live` opts into curated real-file checks against current sibling repos such as `rules-us`
+- `rulespec-compile harness --include-live` opts into curated real-file checks against current sibling repos such as `rulespec-us`
 - `rulespec-compile harness --include-external` opts into PolicyEngine-backed oracle cases when `policyengine-us` is installed
 
 ### Validation
